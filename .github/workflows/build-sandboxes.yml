@@ -58,7 +58,7 @@ jobs:
               | cut -d'/' -f2 \
               | sort -u \
               | while read -r name; do
-                  [ -f "sandboxes/${name}/Dockerfile" ] && echo "$name"
+                  if [ -f "sandboxes/${name}/Dockerfile" ]; then echo "$name"; fi
                 done \
               | jq -R -s -c 'split("\n") | map(select(length > 0))')
           fi
