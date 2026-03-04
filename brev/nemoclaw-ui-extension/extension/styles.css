@@ -1,0 +1,719 @@
+/* ===========================================
+   NeMoClaw DevX — NVIDIA Green: #76B900
+   =========================================== */
+
+/* ===========================================
+   Deploy DGX Button
+   =========================================== */
+
+.nemoclaw-deploy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  height: 32px;
+  box-sizing: border-box;
+  border: 1px solid #76B900;
+  border-radius: var(--radius-full, 9999px);
+  background: #76B900;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.nemoclaw-deploy-btn:hover {
+  background: #6aa300;
+  border-color: #6aa300;
+  box-shadow:
+    0 4px 12px rgba(118, 185, 0, 0.35),
+    0 0 20px rgba(118, 185, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.nemoclaw-deploy-btn:active {
+  background: #5a8500;
+  border-color: #5a8500;
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.nemoclaw-deploy-btn:focus-visible {
+  outline: 2px solid #76B900;
+  outline-offset: 2px;
+}
+
+.nemoclaw-deploy-btn__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.nemoclaw-deploy-btn__icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ===========================================
+   Deploy Modal Overlay
+   =========================================== */
+
+.nemoclaw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: nemoclaw-fade-in 150ms ease;
+}
+
+.nemoclaw-overlay[aria-hidden="true"] {
+  display: none;
+}
+
+@keyframes nemoclaw-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.nemoclaw-modal {
+  width: min(520px, 100%);
+  background: var(--card, #181b22);
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-lg, 12px);
+  padding: 24px;
+  animation: nemoclaw-scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+@keyframes nemoclaw-scale-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.nemoclaw-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.nemoclaw-modal__title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-strong, #fafafa);
+}
+
+.nemoclaw-modal__close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--muted, #71717a);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.nemoclaw-modal__close:hover {
+  background: var(--bg-hover, #262a35);
+  color: var(--text, #e4e4e7);
+}
+
+.nemoclaw-modal__close svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-modal__body {
+  display: grid;
+  gap: 16px;
+}
+
+.nemoclaw-modal__desc {
+  color: var(--muted, #71717a);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.nemoclaw-target-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nemoclaw-target {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.nemoclaw-target:hover {
+  border-color: #76B900;
+  background: rgba(118, 185, 0, 0.06);
+  box-shadow: 0 0 0 1px rgba(118, 185, 0, 0.15);
+}
+
+.nemoclaw-target__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(118, 185, 0, 0.12);
+  display: grid;
+  place-items: center;
+  color: #76B900;
+}
+
+.nemoclaw-target__icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-target__info {
+  display: grid;
+  gap: 2px;
+}
+
+.nemoclaw-target__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong, #fafafa);
+}
+
+.nemoclaw-target__desc {
+  font-size: 12px;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-target__arrow {
+  color: var(--muted, #71717a);
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+.nemoclaw-target:hover .nemoclaw-target__arrow {
+  color: #76B900;
+  transform: translateX(2px);
+}
+
+.nemoclaw-target__arrow svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ===========================================
+   Status / feedback inside modal
+   =========================================== */
+
+.nemoclaw-status {
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.nemoclaw-status--info {
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--info, #3b82f6);
+}
+
+.nemoclaw-status--success {
+  border: 1px solid rgba(118, 185, 0, 0.25);
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+.nemoclaw-status--error {
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger, #ef4444);
+}
+
+.nemoclaw-status--loading {
+  border: 1px solid rgba(118, 185, 0, 0.25);
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+.nemoclaw-status svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.nemoclaw-status--loading svg {
+  animation: nemoclaw-spin 1s linear infinite;
+}
+
+@keyframes nemoclaw-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===========================================
+   NeMoClaw Nav Group — NVIDIA Green text
+   =========================================== */
+
+.nemoclaw-nav-group .nav-label__text {
+  color: #76B900;
+}
+
+.nemoclaw-nav-group .nav-label:hover .nav-label__text {
+  color: #76B900;
+}
+
+.nemoclaw-nav-group .nav-label__chevron {
+  color: #76B900;
+  opacity: 0.7;
+}
+
+.nemoclaw-nav-group .nav-item {
+  color: #76B900;
+}
+
+.nemoclaw-nav-group .nav-item:hover {
+  color: #8ad400;
+}
+
+.nemoclaw-nav-group .nav-item .nav-item__icon {
+  color: #76B900;
+  opacity: 0.85;
+}
+
+.nemoclaw-nav-group .nav-item:hover .nav-item__icon {
+  color: #8ad400;
+  opacity: 1;
+}
+
+.nemoclaw-nav-group .nav-item.active {
+  color: #76B900;
+  background: rgba(118, 185, 0, 0.12);
+}
+
+.nemoclaw-nav-group .nav-item.active .nav-item__icon {
+  color: #76B900;
+  opacity: 1;
+}
+
+.nemoclaw-nav-group .nav-item__icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ===========================================
+   NeMoClaw Page Overlay
+   =========================================== */
+
+.nemoclaw-page-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: var(--bg, #12141a);
+  padding: 12px 16px 32px;
+  overflow-y: auto;
+}
+
+:root[data-theme="light"] .nemoclaw-page-overlay {
+  background: var(--bg-content, #f8f8fa);
+}
+
+main.content {
+  position: relative;
+}
+
+/* ===========================================
+   Empty State Placeholder
+   =========================================== */
+
+.nemoclaw-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 24px;
+  max-width: 480px;
+  margin: 0 auto;
+  animation: nemoclaw-fade-in 250ms ease;
+}
+
+.nemoclaw-empty-state__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg, 12px);
+  background: rgba(118, 185, 0, 0.10);
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+  color: #76B900;
+}
+
+.nemoclaw-empty-state__icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-empty-state__title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-strong, #fafafa);
+  margin-bottom: 8px;
+}
+
+.nemoclaw-empty-state__message {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted, #71717a);
+  margin: 0;
+}
+
+/* ===========================================
+   Model Selector (Chat Compose)
+   =========================================== */
+
+.nemoclaw-actions-column {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.nemoclaw-model-selector {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* "Powered by" attribution line */
+.nemoclaw-model-powered {
+  font-size: 9px;
+  font-weight: 500;
+  color: #76B900;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 150ms ease;
+}
+
+.nemoclaw-model-powered:hover {
+  color: #76B900;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Trigger button — larger sizing */
+.nemoclaw-model-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-full, 9999px);
+  background: var(--secondary, #1e2028);
+  color: var(--text, #e4e4e7);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.nemoclaw-model-trigger:hover {
+  border-color: var(--border-strong, #3f3f46);
+  background: var(--bg-hover, #262a35);
+}
+
+.nemoclaw-model-selector--open .nemoclaw-model-trigger {
+  border-color: #76B900;
+}
+
+.nemoclaw-model-trigger__label {
+  color: var(--muted, #71717a);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.nemoclaw-model-trigger__value {
+  color: #76B900;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nemoclaw-model-trigger__chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--muted, #71717a);
+  transition: transform 150ms ease;
+}
+
+.nemoclaw-model-selector--open .nemoclaw-model-trigger__chevron {
+  transform: rotate(180deg);
+  color: #76B900;
+}
+
+.nemoclaw-model-trigger__chevron svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-model-trigger__chevron--loading svg {
+  animation: nemoclaw-spin 1s linear infinite;
+}
+
+/* Dropdown panel — larger */
+.nemoclaw-model-dropdown {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 230px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card, #181b22);
+  padding: 5px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: nemoclaw-scale-in 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme="light"] .nemoclaw-model-dropdown {
+  background: var(--bg, #fff);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+/* Dropdown options — larger */
+.nemoclaw-model-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text, #e4e4e7);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 100ms ease,
+    color 100ms ease;
+}
+
+.nemoclaw-model-option:hover {
+  background: var(--bg-hover, #262a35);
+}
+
+.nemoclaw-model-option--selected {
+  color: #76B900;
+  background: rgba(118, 185, 0, 0.10);
+}
+
+.nemoclaw-model-option--selected:hover {
+  background: rgba(118, 185, 0, 0.15);
+}
+
+/* ===========================================
+   Model Switching — Suppress OpenClaw disconnect artifacts
+   =========================================== */
+
+body.nemoclaw-switching .card.chat > .callout {
+  display: none !important;
+}
+
+body.nemoclaw-switching .statusDot:not(.ok) {
+  visibility: hidden;
+}
+
+body.nemoclaw-switching .topbar-status .pill .mono {
+  visibility: hidden;
+}
+
+body.nemoclaw-switching .chat-compose textarea[disabled] {
+  opacity: 1 !important;
+  color: var(--text, #e4e4e7) !important;
+  cursor: text;
+}
+
+body.nemoclaw-switching .chat-compose__actions button[disabled] {
+  opacity: 0.6;
+}
+
+/* ===========================================
+   Model Switching — Transition Banner
+   =========================================== */
+
+.nemoclaw-switching-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  animation: nemoclaw-slide-down 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(118, 185, 0, 0.25);
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+.nemoclaw-switching-banner svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.nemoclaw-switching-banner--loading svg {
+  animation: nemoclaw-spin 1s linear infinite;
+}
+
+.nemoclaw-switching-banner--success {
+  border-color: rgba(118, 185, 0, 0.3);
+  background: rgba(118, 185, 0, 0.1);
+  color: #76B900;
+}
+
+.nemoclaw-switching-banner--error {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger, #ef4444);
+}
+
+.nemoclaw-switching-banner strong {
+  font-weight: 700;
+}
+
+.nemoclaw-switching-banner--dismiss {
+  animation: nemoclaw-banner-fade-out 300ms ease forwards;
+}
+
+@keyframes nemoclaw-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nemoclaw-banner-fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-4px); }
+}
+
+/* ===========================================
+   Responsive
+   =========================================== */
+
+@media (max-width: 1100px) {
+  .nemoclaw-deploy-btn span:not(.nemoclaw-deploy-btn__icon) {
+    display: none;
+  }
+
+  .nemoclaw-deploy-btn {
+    padding: 6px 8px;
+    gap: 0;
+  }
+
+  .nemoclaw-actions-column {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .nemoclaw-model-selector {
+    width: 100%;
+  }
+
+  .nemoclaw-model-trigger {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .nemoclaw-model-dropdown {
+    right: auto;
+    left: 0;
+    width: 100%;
+  }
+}

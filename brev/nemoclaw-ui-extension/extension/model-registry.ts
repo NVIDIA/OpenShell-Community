@@ -1,0 +1,195 @@
+/**
+ * NeMoClaw DevX — NVIDIA Model & Deploy Registry
+ *
+ * Static registry of available NVIDIA model endpoints.
+ *
+ * Each entry carries enough information to:
+ *  1. Render the dropdown option
+ *  2. Build a `config.patch` payload that adds the provider and switches
+ *     `agents.defaults.model.primary`
+ *
+ * The two NVIDIA API platforms use separate API keys:
+ *   - inference-api.nvidia.com  — NVIDIA_INFERENCE_API_KEY (injected at install time)
+ *   - integrate.api.nvidia.com  — NVIDIA_INTEGRATE_API_KEY (injected at install time)
+ *
+ * API keys are replaced by install.sh from .env placeholders.
+ */
+
+// ---------------------------------------------------------------------------
+// API key placeholders — replaced at install time by install.sh
+// ---------------------------------------------------------------------------
+
+export const NVIDIA_INFERENCE_API_KEY = "__NVIDIA_INFERENCE_API_KEY__";
+export const NVIDIA_INTEGRATE_API_KEY = "__NVIDIA_INTEGRATE_API_KEY__";
+
+// ---------------------------------------------------------------------------
+// Model provider / entry types
+// ---------------------------------------------------------------------------
+
+export interface ModelProviderConfig {
+  baseUrl: string;
+  api: string;
+  apiKey?: string;
+  models: Array<{
+    id: string;
+    name: string;
+    reasoning: boolean;
+    input: string[];
+    cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+    contextWindow: number;
+    maxTokens: number;
+  }>;
+}
+
+export interface ModelEntry {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  providerKey: string;
+  modelRef: string;
+  apiKey: string | null;
+  providerConfig: ModelProviderConfig;
+}
+
+// ---------------------------------------------------------------------------
+// Model registry
+// ---------------------------------------------------------------------------
+
+const DEFAULT_PROVIDER_KEY = "custom-inference-api-nvidia-com";
+
+export const MODEL_REGISTRY: readonly ModelEntry[] = [
+  {
+    id: "nvidia-claude-opus-4-6",
+    name: "NVIDIA Claude Opus 4.6",
+    isDefault: true,
+    providerKey: DEFAULT_PROVIDER_KEY,
+    modelRef: `${DEFAULT_PROVIDER_KEY}/aws/anthropic/bedrock-claude-opus-4-6`,
+    apiKey: NVIDIA_INFERENCE_API_KEY,
+    providerConfig: {
+      baseUrl: "https://inference-api.nvidia.com/v1",
+      api: "openai-completions",
+      models: [
+        {
+          id: "aws/anthropic/bedrock-claude-opus-4-6",
+          name: "aws/anthropic/bedrock-claude-opus-4-6 (Custom Provider)",
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 200_000,
+          maxTokens: 8192,
+        },
+      ],
+    },
+  },
+  {
+    id: "kimi-k2.5",
+    name: "Kimi K2.5",
+    isDefault: false,
+    providerKey: "custom-nvidia-kimi-k2-5",
+    modelRef: "custom-nvidia-kimi-k2-5/moonshotai/kimi-k2.5",
+    apiKey: NVIDIA_INTEGRATE_API_KEY,
+    providerConfig: {
+      baseUrl: "https://integrate.api.nvidia.com/v1",
+      api: "openai-completions",
+      models: [
+        {
+          id: "moonshotai/kimi-k2.5",
+          name: "Kimi K2.5 (NVIDIA)",
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131_072,
+          maxTokens: 16_384,
+        },
+      ],
+    },
+  },
+  {
+    id: "nemotron-ultra-253b",
+    name: "Nemotron Ultra 253B",
+    isDefault: false,
+    providerKey: "custom-nvidia-nemotron-ultra",
+    modelRef: "custom-nvidia-nemotron-ultra/nvidia/llama-3.1-nemotron-ultra-253b-v1",
+    apiKey: NVIDIA_INTEGRATE_API_KEY,
+    providerConfig: {
+      baseUrl: "https://integrate.api.nvidia.com/v1",
+      api: "openai-completions",
+      models: [
+        {
+          id: "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+          name: "Nemotron Ultra 253B (NVIDIA)",
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131_072,
+          maxTokens: 8192,
+        },
+      ],
+    },
+  },
+  {
+    id: "deepseek-v3.2",
+    name: "DeepSeek V3.2",
+    isDefault: false,
+    providerKey: "custom-nvidia-deepseek-v3-2",
+    modelRef: "custom-nvidia-deepseek-v3-2/deepseek-ai/deepseek-r1",
+    apiKey: NVIDIA_INTEGRATE_API_KEY,
+    providerConfig: {
+      baseUrl: "https://integrate.api.nvidia.com/v1",
+      api: "openai-completions",
+      models: [
+        {
+          id: "deepseek-ai/deepseek-r1",
+          name: "DeepSeek V3.2 (NVIDIA)",
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131_072,
+          maxTokens: 16_384,
+        },
+      ],
+    },
+  },
+] as const;
+
+export const DEFAULT_MODEL = MODEL_REGISTRY.find((m) => m.isDefault)!;
+
+export function getModelById(id: string): ModelEntry | undefined {
+  return MODEL_REGISTRY.find((m) => m.id === id);
+}
+
+// ---------------------------------------------------------------------------
+// Deploy targets (used by deploy-modal.ts)
+// ---------------------------------------------------------------------------
+
+export interface DeployTarget {
+  id: string;
+  name: string;
+  description: string;
+  endpoint: string;
+  apiKeyHeader: string;
+}
+
+export const DEPLOY_TARGETS: DeployTarget[] = [
+  {
+    id: "dgx-spark",
+    name: "DGX Spark",
+    description: "Personal AI computing with up to 128 GB unified memory",
+    endpoint: "https://integrate.api.nvidia.com/v1/deployments/spark",
+    apiKeyHeader: "Authorization",
+  },
+  {
+    id: "dgx-station",
+    name: "DGX Station",
+    description: "Workgroup AI workstation with multi-GPU performance",
+    endpoint: "https://integrate.api.nvidia.com/v1/deployments/station",
+    apiKeyHeader: "Authorization",
+  },
+];
+
+export function getApiKey(target: DeployTarget): string {
+  if (target.endpoint.includes("integrate.api.nvidia.com")) {
+    return NVIDIA_INTEGRATE_API_KEY;
+  }
+  return NVIDIA_INFERENCE_API_KEY;
+}
