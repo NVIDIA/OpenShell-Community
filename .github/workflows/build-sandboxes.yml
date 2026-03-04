@@ -1,17 +1,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-name: Build Sandbox Images
+name: Build Sandbox Images and Traits
 
 on:
   push:
     branches: [main]
     paths:
       - "sandboxes/**"
+      - "traits/**"
   pull_request:
     branches: [main]
     paths:
       - "sandboxes/**"
+      - "traits/**"
   workflow_dispatch:
 
 env:
@@ -24,20 +26,21 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Detect which sandbox images have changed
+  # Detect which sandbox images and traits have changed
   # ---------------------------------------------------------------------------
   detect-changes:
-    name: Detect changed sandboxes
+    name: Detect changed sandboxes and traits
     runs-on: ubuntu-latest
     outputs:
       base-changed: ${{ steps.changes.outputs.base_changed }}
       sandboxes: ${{ steps.changes.outputs.sandboxes }}
+      traits: ${{ steps.changes.outputs.traits }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Determine changed sandboxes
+      - name: Determine changed sandboxes and traits
         id: changes
         run: |
           set -euo pipefail
@@ -49,6 +52,9 @@ jobs:
               | xargs -I{} basename {} \
               | grep -v '^base$' \
               | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            TRAITS=$(find traits -mindepth 1 -maxdepth 1 -type d -exec test -f {}/Dockerfile \; -print \
+              | xargs -I{} basename {} \
+              | jq -R -s -c 'split("\n") | map(select(length > 0))' 2>/dev/null || echo '[]')
           else
             if [ "${{ github.event_name }}" = "pull_request" ]; then
               BASE_SHA="${{ github.event.pull_request.base.sha }}"
@@ -56,7 +62,7 @@ jobs:
               BASE_SHA="${{ github.event.before }}"
             fi
 
-            CHANGED=$(git diff --name-only "$BASE_SHA" "${{ github.sha }}" -- sandboxes/)
+            CHANGED=$(git diff --name-only "$BASE_SHA" "${{ github.sha }}" -- sandboxes/ traits/)
 
             # Check if base changed
             if echo "$CHANGED" | grep -q '^sandboxes/base/'; then
@@ -66,22 +72,37 @@ jobs:
                 | xargs -I{} basename {} \
                 | grep -v '^base$' \
                 | jq -R -s -c 'split("\n") | map(select(length > 0))')
+              # Also rebuild all traits (they depend on base too)
+              TRAITS=$(find traits -mindepth 1 -maxdepth 1 -type d -exec test -f {}/Dockerfile \; -print \
+                | xargs -I{} basename {} \
+                | jq -R -s -c 'split("\n") | map(select(length > 0))' 2>/dev/null || echo '[]')
             else
               BASE_CHANGED="false"
               SANDBOXES=$(echo "$CHANGED" \
+                | grep '^sandboxes/' \
                 | cut -d'/' -f2 \
                 | sort -u \
                 | while read -r name; do
                     if [ "$name" != "base" ] && [ -f "sandboxes/${name}/Dockerfile" ]; then echo "$name"; fi
                   done \
                 | jq -R -s -c 'split("\n") | map(select(length > 0))')
+              TRAITS=$(echo "$CHANGED" \
+                | grep '^traits/' \
+                | cut -d'/' -f2 \
+                | sort -u \
+                | while read -r name; do
+                    if [ -f "traits/${name}/Dockerfile" ]; then echo "$name"; fi
+                  done \
+                | jq -R -s -c 'split("\n") | map(select(length > 0))' 2>/dev/null || echo '[]')
             fi
           fi
 
           echo "base_changed=${BASE_CHANGED}" >> "$GITHUB_OUTPUT"
           echo "sandboxes=${SANDBOXES}" >> "$GITHUB_OUTPUT"
+          echo "traits=${TRAITS}" >> "$GITHUB_OUTPUT"
           echo "Base changed: ${BASE_CHANGED}"
-          echo "Will build: ${SANDBOXES}"
+          echo "Will build sandboxes: ${SANDBOXES}"
+          echo "Will build traits: ${TRAITS}"
 
   # ---------------------------------------------------------------------------
   # Build the base sandbox image (other sandboxes depend on this)
@@ -245,3 +266,84 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.sandbox }}
 
 
+  # ---------------------------------------------------------------------------
+  # Build trait images (after base completes)
+  # ---------------------------------------------------------------------------
+  build-traits:
+    name: Build trait ${{ matrix.trait }}
+    needs: [detect-changes, build-base]
+    if: |
+      always() &&
+      needs.detect-changes.result == 'success' &&
+      (needs.build-base.result == 'success' || needs.build-base.result == 'skipped') &&
+      needs.detect-changes.outputs.traits != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        trait: ${{ fromJson(needs.detect-changes.outputs.traits) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase image prefix
+        id: repo
+        run: echo "image_prefix=${IMAGE_PREFIX,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Start local registry (PR only)
+        if: github.ref != 'refs/heads/main'
+        run: docker run -d -p 5000:5000 --name registry registry:2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: ${{ github.ref != 'refs/heads/main' && 'network=host' || '' }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build base image locally (PR only)
+        if: github.ref != 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: sandboxes/base
+          push: true
+          tags: localhost:5000/sandboxes/base:latest
+          cache-from: type=gha,scope=base
+
+      - name: Set BASE_IMAGE
+        id: base
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "image=${{ env.REGISTRY }}/${{ steps.repo.outputs.image_prefix }}/sandboxes/base:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=localhost:5000/sandboxes/base:latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.repo.outputs.image_prefix }}/traits/${{ matrix.trait }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: traits/${{ matrix.trait }}
+          platforms: ${{ github.ref == 'refs/heads/main' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ steps.base.outputs.image }}
+          cache-from: type=gha,scope=trait-${{ matrix.trait }}
+          cache-to: type=gha,mode=max,scope=trait-${{ matrix.trait }}

@@ -56,6 +56,30 @@ Requirements:
 - A `README.md` describing the sandbox's purpose, usage, and any prerequisites
 - Keep images minimal -- only include what's needed for the workload
 
+## Adding a Trait
+
+Traits are cross-cutting capabilities that can be composed into any sandbox. Each trait lives under `traits/`:
+
+```
+traits/my-trait/
+  Dockerfile
+  trait.yaml
+  README.md
+  ...
+```
+
+Requirements:
+- A `Dockerfile` that builds the trait's artifacts (binaries, configs, scripts)
+- A `trait.yaml` manifest declaring what the trait exports, its startup script, ports, and network policy entries
+- A `README.md` describing the trait, its architecture, and usage
+
+The `trait.yaml` format is documented in [TRAITS.md](TRAITS.md). Key sections:
+- `exports` -- paths to binaries, configs, scripts, and workspace directories the trait provides
+- `startup` -- the script to run and a health check URL
+- `network_policy` -- entries that consuming sandboxes should merge into their own `policy.yaml`
+
+After adding your trait, update the "Available Traits" table in [TRAITS.md](TRAITS.md).
+
 ## Adding a Skill
 
 Skills live inside their sandbox's `skills/` directory (e.g., `sandboxes/openclaw/skills/my-skill/`). Each skill should include:

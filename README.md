@@ -10,6 +10,7 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | ------------ | --------------------------------------------------------------------------------- |
 | `brev/`      | [Brev](https://brev.dev) launchable for one-click cloud deployment of OpenShell    |
 | `sandboxes/` | Pre-built sandbox images for domain-specific workloads (each with its own skills) |
+| `traits/`    | Cross-cutting capabilities you compose into any sandbox (see [TRAITS.md](TRAITS.md)) |
 
 ### Sandboxes
 
@@ -19,6 +20,14 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | `sandboxes/sdg/`        | Synthetic data generation workflows                          |
 | `sandboxes/openclaw/`   | OpenClaw -- open agent manipulation and control              |
 | `sandboxes/simulation/` | General-purpose simulation sandboxes                         |
+
+### Traits
+
+Traits are cross-cutting capabilities you add to any sandbox -- not sandboxes themselves. Each trait ships as a Docker image; you compose it into your sandbox via `COPY --from` at build time. See [TRAITS.md](TRAITS.md) for the full specification.
+
+| Trait | Description |
+| ----- | ----------- |
+| [`capability-ratchet`](traits/capability-ratchet/) | Prevents AI agent data exfiltration by dynamically revoking capabilities when private/untrusted data enters the context |
 
 ## Getting Started
 

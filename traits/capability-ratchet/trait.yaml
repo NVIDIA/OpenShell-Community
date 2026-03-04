@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Trait manifest for capability-ratchet.
+# See TRAITS.md at the repo root for the full specification.
+
+name: capability-ratchet
+version: "0.1.0"
+description: >
+  Prevents AI agent data exfiltration by dynamically revoking
+  capabilities when private/untrusted data enters the context.
+  Complements NemoClaw's perimeter security with context-aware
+  inference-level controls.
+
+exports:
+  binaries:
+    - /usr/local/bin/capability-ratchet-sidecar
+    - /usr/local/bin/bash-ast
+  config:
+    - /app/ratchet-config.yaml
+    - /app/policy.yaml
+  scripts:
+    - /usr/local/bin/ratchet-start
+  workspace:
+    - /sandbox/.ratchet
+
+startup:
+  script: /usr/local/bin/ratchet-start
+  health_check: http://127.0.0.1:4001/health
+
+ports:
+  - 4001
+
+network_policy:
+  ratchet_sidecar:
+    endpoints:
+      - { host: api.anthropic.com, port: 443 }
+      - { host: api.openai.com, port: 443 }
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/capability-ratchet-sidecar }
+
+inference:
+  route: ratchet
+  endpoint: http://127.0.0.1:4001/v1
