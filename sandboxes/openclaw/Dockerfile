@@ -7,7 +7,7 @@
 #
 # Extends the base NemoClaw sandbox with OpenClaw and its dependencies.
 # Build:  docker build -t nemoclaw-openclaw .
-# Run:    nemoclaw sandbox create --image nemoclaw-openclaw
+# Run:    nemoclaw sandbox create --from openclaw
 
 ARG BASE_IMAGE=nemoclaw/sandbox:latest
 FROM ${BASE_IMAGE} AS base

@@ -26,13 +26,13 @@ docker build -t nemoclaw-openclaw --build-arg BASE_IMAGE=nemoclaw/sandbox:v0.1.0
 ### Create a sandbox
 
 ```bash
-nemoclaw sandbox create --image nemoclaw-openclaw
+nemoclaw sandbox create --from openclaw
 ```
 
 ### With port forwarding (to access the OpenClaw UI)
 
 ```bash
-nemoclaw sandbox create --image nemoclaw-openclaw --forward 18789 -- openclaw-start
+nemoclaw sandbox create --from openclaw --forward 18789 -- openclaw-start
 ```
 
 This runs the `openclaw-start` helper which:

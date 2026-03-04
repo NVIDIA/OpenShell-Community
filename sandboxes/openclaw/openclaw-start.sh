@@ -7,7 +7,7 @@
 # Designed for NemoClaw sandboxes.
 #
 # Usage:
-#   nemoclaw sandbox create --image nemoclaw-openclaw --forward 18789 -- openclaw-start
+#   nemoclaw sandbox create --from openclaw --forward 18789 -- openclaw-start
 set -euo pipefail
 
 openclaw onboard

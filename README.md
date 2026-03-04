@@ -36,10 +36,10 @@ The fastest way to get up and running is with the included Brev launchable:
 ### Using Sandboxes
 
 ```bash
-nemoclaw sandbox create --image openclaw
+nemoclaw sandbox create --from openclaw
 ```
 
-The `--image` flag accepts any of the sandbox images defined under `sandboxes/` (e.g., `sdg`, `cosmos`, `openclaw`, `simulation`).
+The `--from` flag accepts any sandbox defined under `sandboxes/` (e.g., `openclaw`, `sdg`, `simulation`), a local path, or a container image reference.
 
 ## Contributing
 
