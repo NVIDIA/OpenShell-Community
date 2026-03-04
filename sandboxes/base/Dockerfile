@@ -10,8 +10,7 @@
 #
 # Build:  docker build -t nemoclaw-base .
 
-# ── Stage 1: System base ─────────────────────────────────────────────────────
-
+# System base
 FROM ubuntu:24.04 AS system
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -42,8 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r supervisor && useradd -r -g supervisor -s /usr/sbin/nologin supervisor && \
     groupadd -r sandbox && useradd -r -g sandbox -d /sandbox -s /bin/bash sandbox
 
-# ── Stage 2: Developer tools ─────────────────────────────────────────────────
-
+# Developer tools
 FROM system AS devtools
 
 # Node.js 22 + build toolchain (needed by npm packages with native addons)
@@ -67,8 +65,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 # uv (Python package manager)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# ── Stage 3: Final base image ───────────────────────────────────────────────
-
+# Final base image
 FROM devtools AS final
 
 # Ensure policy directory exists
