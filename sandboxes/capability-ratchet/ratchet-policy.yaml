@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Capability Ratchet policy — defines which tools produce taint
+# and which capabilities they require.
+#
+# Resolution order for a command:
+#   1. tools["cmd subcmd"]     -> match (taint + requires from config)
+#   2. tools["cmd"]            -> base tool fallback
+#   3. knownSafe               -> no taint, no requires
+#   4. unknown                 -> both taint flags (fail closed)
+
+version: "2.0"
+name: nemoclaw-default
+
+tools:
+  # --- Private data sources ---
+  outlook-cli:
+    taint: [has-private-data]
+
+  outlook-cli read:
+    taint: [has-private-data]
+
+  outlook-cli search:
+    taint: [has-private-data]
+
+  calendar-cli:
+    taint: [has-private-data]
+
+  calendar-cli events:
+    taint: [has-private-data]
+
+  # --- Untrusted input sources ---
+  confluence-cli:
+    taint: [has-untrusted-input]
+
+  confluence-cli search:
+    taint: [has-untrusted-input]
+
+  # --- Network egress tools ---
+  curl:
+    requires: [network:egress]
+
+  wget:
+    requires: [network:egress]
+
+  # --- Tools with approved endpoints ---
+  curl api.github.com:
+    requires: [network:egress:approved]
+
+  git push:
+    requires: [network:egress:approved]
+
+# Endpoints approved for egress even under taint
+approvedEndpoints:
+  - "api.github.com"
+  - "gitlab.com"
+  - "*.nvidia.com"
+
+# Additional known-safe commands (merged with built-in list)
+knownSafe:
+  - outlook-cli
+  - calendar-cli
+  - confluence-cli

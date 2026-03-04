@@ -1,0 +1,64 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+//! Built-in known-safe command list for the Capability Ratchet guardrail.
+
+use std::collections::HashSet;
+
+
+/// Commands that produce no taint and require no special capabilities.
+pub static BUILTIN_KNOWN_SAFE: std::sync::LazyLock<HashSet<&'static str>> = std::sync::LazyLock::new(|| {
+    [
+        // Shell builtins
+        "echo", "printf", "cd", "pushd", "popd", "export", "source", "set", "unset", "alias",
+        "read", "true", "false", "test", "command", "type", "hash", "break", "continue", "return",
+        "exit", "local", "declare", "readonly", "shift", "trap", "wait",
+        "eval", // bash_unwrap re-parses eval arguments as shell code
+        // File operations
+        "ls", "cat", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "sed", "awk", "gawk",
+        "sort", "uniq", "cut", "tr", "tee", "xargs", "find", "which", "whereis", "file", "stat",
+        "du", "df", "mv", "cp", "mkdir", "touch", "chmod", "chown", "chgrp", "ln", "rm", "rmdir",
+        "diff", "patch", "tar", "gzip", "gunzip", "zip", "unzip", "basename", "dirname",
+        "realpath", "readlink", "comm", "join", "paste", "fold", "fmt", "nl", "strings", "od",
+        "xxd", "hexdump", "md5", "md5sum", "sha256sum", "shasum", "yes", "seq", "shuf",
+        // Version control
+        "git",
+        // Build and dev tools
+        "make", "cmake", "cargo", "npm", "yarn", "pip", "pip3", "uv", "go", "rustc", "javac",
+        "gcc", "g++", "cc", "python", "python3", "node", "ruby", "perl", "php", "gofmt",
+        "goimports", "golines", "gofumpt", "gosec", "govulncheck", "golangci-lint", "goreleaser",
+        "staticcheck", "gocyclo", "ruff", "mypy", "pytest", "black", "isort", "flake8", "tsc",
+        "eslint", "prettier", "npx", "bunx", "bun", "shellcheck", "pre-commit",
+        // Data processing
+        "jq", "yq", "column", "sqlite3",
+        // Containers and orchestration
+        "docker", "kubectl", "helm",
+        // System
+        "date", "hostname", "whoami", "uname", "env", "pwd", "id", "sleep", "kill", "ps", "top",
+        "pgrep", "pkill", "nohup", "timeout", "nice", "less", "more", "vi", "vim", "nano", "man",
+        "sync",
+        // Network tools
+        "ssh", "scp", "rsync", "curl", "wget", "dig", "nslookup", "ssh-add", "ssh-keygen",
+        // Package managers
+        "brew", "apt", "apt-get", "yum", "dnf",
+        // macOS
+        "open", "pbcopy", "pbpaste", "security", "xattr", "dscacheutil", "killall", "sudo",
+        // CLIs
+        "op", "gh", "glab", "az", "aws", "gcloud", "litellm", "claude", "pi", "jira", "jira-cli",
+        "bash", "sh", "zsh", "ksh", "dash", // shells are known; bash_unwrap handles -c
+        "bash-ast", "ast-grep", "tmux", "screen", "bd", "ollama",
+        // Archive / compression
+        "ar", "dpkg-deb", "rpm",
+        // Text display
+        "tree", "cloc", "ctags",
+        // Misc dev tools
+        "asciinema", "agg",
+    ]
+    .into_iter()
+    .collect()
+});
+
+/// Check if a command is in the built-in known-safe list.
+pub fn is_known_safe(cmd: &str) -> bool {
+    BUILTIN_KNOWN_SAFE.contains(cmd)
+}

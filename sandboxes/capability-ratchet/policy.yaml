@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# NemoClaw sandbox network policy for the capability ratchet sandbox.
+# This defines filesystem, process, and network policies enforced by
+# NemoClaw's proxy (same structure as openclaw/policy.yaml).
+
+version: 1
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+network_policies:
+  # The ratchet sidecar process needs to reach the upstream inference backend
+  ratchet_sidecar:
+    name: ratchet_sidecar
+    endpoints:
+      - { host: api.anthropic.com, port: 443 }
+      - { host: api.openai.com, port: 443 }
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/capability-ratchet-sidecar }
+
+  # Agent tools (Claude Code, etc.) — route through ratchet sidecar
+  claude_code:
+    name: claude_code
+    endpoints:
+      - { host: statsig.anthropic.com, port: 443 }
+      - { host: sentry.io, port: 443 }
+      - { host: raw.githubusercontent.com, port: 443 }
+      - { host: platform.claude.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/claude }
+      - { path: /usr/bin/node }
+
+  github:
+    name: github
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+    binaries:
+      - { path: /usr/bin/git }
+
+inference:
+  allowed_routes:
+    - ratchet

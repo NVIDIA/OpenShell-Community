@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" font-family="system-ui,-apple-system,sans-serif" font-size="13">
+  <rect width="800" height="520" fill="#fafafa" rx="8"/>
+  <text x="400" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a2e">Capability Ratchet — Request Flow</text>
+
+  <!-- Top-level boxes -->
+  <rect x="30" y="60" width="140" height="50" rx="6" fill="#e8eaf6" stroke="#5c6bc0" stroke-width="1.5"/>
+  <text x="100" y="90" text-anchor="middle" font-weight="600" fill="#283593">Agent</text>
+  <text x="100" y="103" text-anchor="middle" font-size="10" fill="#5c6bc0">Claude / Codex</text>
+
+  <rect x="220" y="60" width="160" height="50" rx="6" fill="#e0f2f1" stroke="#26a69a" stroke-width="1.5"/>
+  <text x="300" y="85" text-anchor="middle" font-weight="600" fill="#00695c">NemoClaw Proxy</text>
+  <text x="300" y="100" text-anchor="middle" font-size="10" fill="#26a69a">TLS · route · policy</text>
+
+  <rect x="430" y="50" width="180" height="70" rx="6" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="520" y="78" text-anchor="middle" font-weight="700" fill="#e65100">Capability Ratchet</text>
+  <text x="520" y="93" text-anchor="middle" font-size="10" fill="#ef6c00">Sidecar (:4001)</text>
+  <text x="520" y="108" text-anchor="middle" font-size="10" fill="#ef6c00">Rust / Axum</text>
+
+  <rect x="660" y="60" width="120" height="50" rx="6" fill="#e8eaf6" stroke="#5c6bc0" stroke-width="1.5"/>
+  <text x="720" y="85" text-anchor="middle" font-weight="600" fill="#283593">LLM Backend</text>
+  <text x="720" y="100" text-anchor="middle" font-size="10" fill="#5c6bc0">Anthropic / OpenAI</text>
+
+  <!-- Arrows -->
+  <defs><marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#78909c"/></marker></defs>
+  <line x1="170" y1="85" x2="218" y2="85" stroke="#78909c" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="380" y1="85" x2="428" y2="85" stroke="#78909c" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="610" y1="85" x2="658" y2="85" stroke="#78909c" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Detail box -->
+  <rect x="60" y="150" width="680" height="350" rx="8" fill="white" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4"/>
+  <text x="400" y="175" text-anchor="middle" font-size="14" font-weight="bold" fill="#424242">Sidecar Request Pipeline</text>
+
+  <!-- Pre-call -->
+  <rect x="90" y="195" width="280" height="130" rx="6" fill="#e3f2fd" stroke="#1976d2" stroke-width="1"/>
+  <text x="230" y="215" text-anchor="middle" font-weight="600" fill="#0d47a1">PRE-CALL</text>
+  <text x="100" y="238" font-size="11" fill="#333">1. Normalize messages</text>
+  <text x="115" y="255" font-size="10" fill="#666">(Chat Completions / Anthropic / Responses)</text>
+  <text x="100" y="275" font-size="11" fill="#333">2. Detect taint from tool results</text>
+  <text x="115" y="292" font-size="10" fill="#666">(has-private-data / has-untrusted-input)</text>
+  <text x="100" y="312" font-size="11" fill="#333">3. Inject safety hint if tainted</text>
+
+  <!-- Forward -->
+  <rect x="400" y="195" width="140" height="55" rx="6" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="1"/>
+  <text x="470" y="218" text-anchor="middle" font-weight="600" fill="#4a148c">FORWARD</text>
+  <text x="470" y="238" text-anchor="middle" font-size="11" fill="#333">→ Backend (reqwest)</text>
+
+  <!-- Post-call -->
+  <rect x="400" y="270" width="320" height="210" rx="6" fill="#fce4ec" stroke="#c62828" stroke-width="1"/>
+  <text x="560" y="293" text-anchor="middle" font-weight="600" fill="#b71c1c">POST-CALL (if tainted)</text>
+  <text x="415" y="315" font-size="11" fill="#333">4. Extract tool calls from response</text>
+  <text x="415" y="338" font-size="11" fill="#333">5. For each tool call:</text>
+  <text x="430" y="358" font-size="10" fill="#666">• Parse bash AST (via Unix socket)</text>
+  <text x="430" y="375" font-size="10" fill="#666">• Unwrap bash -c recursively</text>
+  <text x="430" y="392" font-size="10" fill="#666">• Classify: network, interpreter, reversibility</text>
+  <text x="430" y="409" font-size="10" fill="#666">• Check against revocation matrix</text>
+  <text x="415" y="432" font-size="11" fill="#333">6. Block, sandbox, or pass through</text>
+  <text x="415" y="455" font-size="11" fill="#333">7. Check X-Ratchet-Approve header</text>
+
+  <!-- Revocation matrix -->
+  <rect x="90" y="340" width="280" height="140" rx="6" fill="#fff8e1" stroke="#f9a825" stroke-width="1"/>
+  <text x="230" y="363" text-anchor="middle" font-weight="600" fill="#f57f17">Revocation Matrix</text>
+  <text x="100" y="385" font-size="10" fill="#333" font-family="monospace">neither flag      → nothing forbidden</text>
+  <text x="100" y="403" font-size="10" fill="#333" font-family="monospace">private-data      → network:egress</text>
+  <text x="100" y="421" font-size="10" fill="#333" font-family="monospace">untrusted-input   → exec:irreversible</text>
+  <text x="100" y="439" font-size="10" fill="#c62828" font-family="monospace" font-weight="600">both flags        → egress + arbitrary</text>
+  <text x="100" y="457" font-size="10" fill="#c62828" font-family="monospace" font-weight="600">                    + irreversible</text>
+  <text x="100" y="472" font-size="9" fill="#666">network:egress:approved is NEVER forbidden</text>
+</svg>
