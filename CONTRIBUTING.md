@@ -10,6 +10,24 @@ Thank you for your interest in contributing to the NemoClaw Community ecosystem.
 - **Documentation** -- Improve READMEs, guides, and usage examples
 - **Integrations** -- Connect NemoClaw to new tools, platforms, or workflows
 
+## Developer Certificate of Origin (DCO)
+
+All contributions to this project must include a `Signed-off-by` line in the commit message, certifying that you wrote or have the right to submit the code under the project's open-source license. This is the [Developer Certificate of Origin (DCO)](https://developercertificate.org/).
+
+Add the sign-off automatically with `git commit -s`:
+
+```bash
+git commit -s -m "Add new sandbox image"
+```
+
+This appends a line like:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+A DCO check runs on every pull request and will fail if any commit is missing the sign-off.
+
 ## Getting Started
 
 1. Fork this repository
