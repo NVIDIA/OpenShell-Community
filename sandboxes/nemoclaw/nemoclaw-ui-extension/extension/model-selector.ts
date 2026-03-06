@@ -11,6 +11,8 @@ import {
   MODEL_REGISTRY,
   DEFAULT_MODEL,
   getModelById,
+  resolveApiKey,
+  isKeyConfigured,
   type ModelEntry,
 } from "./model-registry.ts";
 import { patchConfig, waitForReconnect } from "./gateway-bridge.ts";
@@ -27,16 +29,19 @@ let applyInFlight = false;
 // Build the config.patch payload for a given model entry
 // ---------------------------------------------------------------------------
 
-function buildModelPatch(entry: ModelEntry): Record<string, unknown> {
+function buildModelPatch(entry: ModelEntry): Record<string, unknown> | null {
+  const apiKey = resolveApiKey(entry.keyType);
+
+  if (!isKeyConfigured(apiKey)) {
+    return null;
+  }
+
   const providerDef: Record<string, unknown> = {
     baseUrl: entry.providerConfig.baseUrl,
     api: entry.providerConfig.api,
     models: entry.providerConfig.models,
+    apiKey,
   };
-
-  if (entry.apiKey && !entry.apiKey.startsWith("__")) {
-    providerDef.apiKey = entry.apiKey;
-  }
 
   return {
     models: {
@@ -137,6 +142,16 @@ async function applyModelSelection(
 
   try {
     const patch = buildModelPatch(entry);
+    if (!patch) {
+      selectedModelId = previousModelId;
+      const prev = getModelById(previousModelId) ?? DEFAULT_MODEL;
+      if (valueEl) valueEl.textContent = prev.name;
+      updateDropdownSelection(wrapper, previousModelId);
+      updateTransitionBannerError(
+        `API key not configured. <a href="#" data-nemoclaw-goto="nemoclaw-api-keys">Add your keys</a> to switch models.`,
+      );
+      return;
+    }
     await patchConfig(patch);
 
     if (valueEl) valueEl.textContent = entry.name;

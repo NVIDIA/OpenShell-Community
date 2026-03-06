@@ -9,18 +9,55 @@
  *     `agents.defaults.model.primary`
  *
  * The two NVIDIA API platforms use separate API keys:
- *   - inference-api.nvidia.com  — NVIDIA_INFERENCE_API_KEY (injected at install time)
- *   - integrate.api.nvidia.com  — NVIDIA_INTEGRATE_API_KEY (injected at install time)
+ *   - inference-api.nvidia.com  — NVIDIA_INFERENCE_API_KEY
+ *   - integrate.api.nvidia.com  — NVIDIA_INTEGRATE_API_KEY
  *
- * API keys are replaced by install.sh from .env placeholders.
+ * Keys are resolved at call time: localStorage (user-entered) takes
+ * priority, then the baked-in value (from sed/env substitution at
+ * container startup), and finally the raw placeholder string.
  */
 
 // ---------------------------------------------------------------------------
-// API key placeholders — replaced at install time by install.sh
+// API key storage — localStorage first, then baked-in fallback
 // ---------------------------------------------------------------------------
 
-export const NVIDIA_INFERENCE_API_KEY = "__NVIDIA_INFERENCE_API_KEY__";
-export const NVIDIA_INTEGRATE_API_KEY = "__NVIDIA_INTEGRATE_API_KEY__";
+const BAKED_INFERENCE_KEY = "__NVIDIA_INFERENCE_API_KEY__";
+const BAKED_INTEGRATE_KEY = "__NVIDIA_INTEGRATE_API_KEY__";
+
+const LS_INFERENCE_KEY = "nemoclaw:nvidia-inference-api-key";
+const LS_INTEGRATE_KEY = "nemoclaw:nvidia-integrate-api-key";
+
+export function getInferenceApiKey(): string {
+  return localStorage.getItem(LS_INFERENCE_KEY) || BAKED_INFERENCE_KEY;
+}
+
+export function getIntegrateApiKey(): string {
+  return localStorage.getItem(LS_INTEGRATE_KEY) || BAKED_INTEGRATE_KEY;
+}
+
+export function setInferenceApiKey(key: string): void {
+  if (key) localStorage.setItem(LS_INFERENCE_KEY, key);
+  else localStorage.removeItem(LS_INFERENCE_KEY);
+}
+
+export function setIntegrateApiKey(key: string): void {
+  if (key) localStorage.setItem(LS_INTEGRATE_KEY, key);
+  else localStorage.removeItem(LS_INTEGRATE_KEY);
+}
+
+export function isKeyConfigured(key: string): boolean {
+  return !!key && !key.startsWith("__");
+}
+
+// ---------------------------------------------------------------------------
+// Key type — used by ModelEntry to resolve the right key at call time
+// ---------------------------------------------------------------------------
+
+export type ApiKeyType = "inference" | "integrate";
+
+export function resolveApiKey(keyType: ApiKeyType): string {
+  return keyType === "inference" ? getInferenceApiKey() : getIntegrateApiKey();
+}
 
 // ---------------------------------------------------------------------------
 // Model provider / entry types
@@ -47,7 +84,7 @@ export interface ModelEntry {
   isDefault: boolean;
   providerKey: string;
   modelRef: string;
-  apiKey: string | null;
+  keyType: ApiKeyType;
   providerConfig: ModelProviderConfig;
 }
 
@@ -64,7 +101,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     isDefault: true,
     providerKey: DEFAULT_PROVIDER_KEY,
     modelRef: `${DEFAULT_PROVIDER_KEY}/aws/anthropic/bedrock-claude-opus-4-6`,
-    apiKey: NVIDIA_INFERENCE_API_KEY,
+    keyType: "inference",
     providerConfig: {
       baseUrl: "https://inference-api.nvidia.com/v1",
       api: "openai-completions",
@@ -87,7 +124,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     isDefault: false,
     providerKey: "custom-nvidia-kimi-k2-5",
     modelRef: "custom-nvidia-kimi-k2-5/moonshotai/kimi-k2.5",
-    apiKey: NVIDIA_INTEGRATE_API_KEY,
+    keyType: "integrate",
     providerConfig: {
       baseUrl: "https://integrate.api.nvidia.com/v1",
       api: "openai-completions",
@@ -110,7 +147,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     isDefault: false,
     providerKey: "custom-nvidia-nemotron-ultra",
     modelRef: "custom-nvidia-nemotron-ultra/nvidia/llama-3.1-nemotron-ultra-253b-v1",
-    apiKey: NVIDIA_INTEGRATE_API_KEY,
+    keyType: "integrate",
     providerConfig: {
       baseUrl: "https://integrate.api.nvidia.com/v1",
       api: "openai-completions",
@@ -133,7 +170,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     isDefault: false,
     providerKey: "custom-nvidia-deepseek-v3-2",
     modelRef: "custom-nvidia-deepseek-v3-2/deepseek-ai/deepseek-r1",
-    apiKey: NVIDIA_INTEGRATE_API_KEY,
+    keyType: "integrate",
     providerConfig: {
       baseUrl: "https://integrate.api.nvidia.com/v1",
       api: "openai-completions",
@@ -150,7 +187,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
       ],
     },
   },
-] as const;
+];
 
 export const DEFAULT_MODEL = MODEL_REGISTRY.find((m) => m.isDefault)!;
 
@@ -189,7 +226,7 @@ export const DEPLOY_TARGETS: DeployTarget[] = [
 
 export function getApiKey(target: DeployTarget): string {
   if (target.endpoint.includes("integrate.api.nvidia.com")) {
-    return NVIDIA_INTEGRATE_API_KEY;
+    return getIntegrateApiKey();
   }
-  return NVIDIA_INFERENCE_API_KEY;
+  return getInferenceApiKey();
 }

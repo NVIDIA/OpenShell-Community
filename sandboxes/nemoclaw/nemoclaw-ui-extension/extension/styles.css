@@ -683,6 +683,267 @@ body.nemoclaw-switching .chat-compose__actions button[disabled] {
 }
 
 /* ===========================================
+   API Keys Page
+   =========================================== */
+
+.nemoclaw-key-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 0;
+  animation: nemoclaw-fade-in 250ms ease;
+}
+
+.nemoclaw-key-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.nemoclaw-key-intro__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg, 12px);
+  background: rgba(118, 185, 0, 0.10);
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  color: #76B900;
+}
+
+.nemoclaw-key-intro__icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-key-intro__text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted, #71717a);
+  margin: 0 0 10px;
+}
+
+.nemoclaw-key-intro__link {
+  font-size: 13px;
+  font-weight: 600;
+  color: #76B900;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.nemoclaw-key-intro__link:hover {
+  color: #8ad400;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.nemoclaw-key-form {
+  display: grid;
+  gap: 24px;
+}
+
+.nemoclaw-key-field {
+  display: grid;
+  gap: 6px;
+}
+
+.nemoclaw-key-field__header {
+  display: flex;
+  align-items: center;
+}
+
+.nemoclaw-key-field__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong, #fafafa);
+}
+
+.nemoclaw-key-field__desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted, #71717a);
+  margin: 0;
+}
+
+.nemoclaw-key-field__input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.nemoclaw-key-field__input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  color: var(--text, #e4e4e7);
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.nemoclaw-key-field__input::placeholder {
+  color: var(--muted, #71717a);
+  opacity: 0.6;
+}
+
+.nemoclaw-key-field__input:focus {
+  border-color: #76B900;
+  box-shadow: 0 0 0 2px rgba(118, 185, 0, 0.2);
+}
+
+:root[data-theme="light"] .nemoclaw-key-field__input {
+  background: var(--bg, #fff);
+}
+
+.nemoclaw-key-field__toggle {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--muted, #71717a);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.nemoclaw-key-field__toggle:hover {
+  background: var(--bg-hover, #262a35);
+  color: var(--text, #e4e4e7);
+  border-color: var(--border-strong, #3f3f46);
+}
+
+.nemoclaw-key-field__toggle svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Status dots (inline with label, and nav item) */
+
+.nemoclaw-key-dot,
+.nemoclaw-nav-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nemoclaw-key-dot--ok,
+.nemoclaw-nav-dot--ok {
+  background: #76B900;
+  box-shadow: 0 0 4px rgba(118, 185, 0, 0.5);
+}
+
+.nemoclaw-key-dot--missing,
+.nemoclaw-nav-dot--missing {
+  background: var(--danger, #ef4444);
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
+}
+
+/* Actions row */
+
+.nemoclaw-key-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.nemoclaw-key-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border: 1px solid #76B900;
+  border-radius: var(--radius-md, 8px);
+  background: #76B900;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.nemoclaw-key-save:hover {
+  background: #6aa300;
+  border-color: #6aa300;
+  box-shadow: 0 4px 12px rgba(118, 185, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.nemoclaw-key-save:active {
+  background: #5a8500;
+  border-color: #5a8500;
+  transform: translateY(0);
+}
+
+.nemoclaw-key-save:focus-visible {
+  outline: 2px solid #76B900;
+  outline-offset: 2px;
+}
+
+/* Save feedback */
+
+.nemoclaw-key-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 20px;
+}
+
+.nemoclaw-key-feedback--success {
+  color: #76B900;
+  animation: nemoclaw-fade-in 200ms ease;
+}
+
+.nemoclaw-key-feedback--success svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+}
+
+/* Nudge link (used in error messages from deploy-modal / model-selector) */
+
+.nemoclaw-status a[data-nemoclaw-goto],
+.nemoclaw-switching-banner a[data-nemoclaw-goto] {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.nemoclaw-status a[data-nemoclaw-goto]:hover,
+.nemoclaw-switching-banner a[data-nemoclaw-goto]:hover {
+  opacity: 0.85;
+}
+
+/* ===========================================
    Responsive
    =========================================== */
 

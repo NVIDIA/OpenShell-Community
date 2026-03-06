@@ -1,11 +1,12 @@
 /**
  * NeMoClaw DevX — Sidebar Nav Group
  *
- * Collapsible "NeMoClaw" nav group with Policy and Inference Routes pages.
- * Renders page overlays on top of <main.content>.
+ * Collapsible "NeMoClaw" nav group with Policy, Inference Routes, and
+ * API Keys pages. Renders page overlays on top of <main.content>.
  */
 
-import { ICON_SHIELD, ICON_ROUTE } from "./icons.ts";
+import { ICON_SHIELD, ICON_ROUTE, ICON_KEY } from "./icons.ts";
+import { renderApiKeysPage, areAllKeysConfigured, updateStatusDots } from "./api-keys-page.ts";
 
 // ---------------------------------------------------------------------------
 // Page definitions
@@ -18,6 +19,8 @@ interface NemoClawPage {
   title: string;
   subtitle: string;
   emptyMessage: string;
+  customRender?: (container: HTMLElement) => void;
+  showStatusDot?: boolean;
 }
 
 const NEMOCLAW_PAGES: NemoClawPage[] = [
@@ -38,6 +41,16 @@ const NEMOCLAW_PAGES: NemoClawPage[] = [
     subtitle: "Configure model routing and endpoint mappings",
     emptyMessage:
       "Inference route management is coming soon. You'll be able to configure model routing, load balancing, and failover strategies here.",
+  },
+  {
+    id: "nemoclaw-api-keys",
+    label: "API Keys",
+    icon: ICON_KEY,
+    title: "API Keys",
+    subtitle: "Configure your NVIDIA API keys for model endpoints",
+    emptyMessage: "",
+    customRender: renderApiKeysPage,
+    showStatusDot: true,
   },
 ];
 
@@ -76,7 +89,19 @@ function buildNavGroup(): HTMLElement {
     item.href = "#";
     item.className = "nav-item";
     item.dataset.nemoclawPage = page.id;
-    item.innerHTML = `<span class="nav-item__icon" aria-hidden="true">${page.icon}</span><span class="nav-item__text">${page.label}</span>`;
+
+    let dotHtml = "";
+    if (page.showStatusDot) {
+      const ok = areAllKeysConfigured();
+      const dotClass = ok ? "nemoclaw-nav-dot--ok" : "nemoclaw-nav-dot--missing";
+      dotHtml = `<span class="nemoclaw-nav-dot ${dotClass}"></span>`;
+    }
+
+    item.innerHTML =
+      `<span class="nav-item__icon" aria-hidden="true">${page.icon}</span>` +
+      `<span class="nav-item__text">${page.label}</span>` +
+      dotHtml;
+
     item.addEventListener("click", (e) => {
       e.preventDefault();
       activateNemoPage(page.id);
@@ -123,10 +148,10 @@ export function injectNavGroup(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Page activation / deactivation
+// Page activation / deactivation (exported so index.ts can call it)
 // ---------------------------------------------------------------------------
 
-function activateNemoPage(pageId: string) {
+export function activateNemoPage(pageId: string) {
   activeNemoPage = pageId;
   clearAllActiveNavItems();
 
@@ -171,18 +196,22 @@ function showPageOverlay(pageId: string) {
   overlay.className = "nemoclaw-page-overlay";
   overlay.dataset.nemoclawOverlay = "true";
 
-  overlay.innerHTML = `
-    <section class="content-header">
-      <div>
-        <div class="page-title">${page.title}</div>
-        <div class="page-sub">${page.subtitle}</div>
-      </div>
-    </section>
-    <div class="nemoclaw-empty-state">
-      <div class="nemoclaw-empty-state__icon">${page.icon}</div>
-      <div class="nemoclaw-empty-state__title">${page.label}</div>
-      <p class="nemoclaw-empty-state__message">${page.emptyMessage}</p>
-    </div>`;
+  if (page.customRender) {
+    page.customRender(overlay);
+  } else {
+    overlay.innerHTML = `
+      <section class="content-header">
+        <div>
+          <div class="page-title">${page.title}</div>
+          <div class="page-sub">${page.subtitle}</div>
+        </div>
+      </section>
+      <div class="nemoclaw-empty-state">
+        <div class="nemoclaw-empty-state__icon">${page.icon}</div>
+        <div class="nemoclaw-empty-state__title">${page.label}</div>
+        <p class="nemoclaw-empty-state__message">${page.emptyMessage}</p>
+      </div>`;
+  }
 
   content.appendChild(overlay);
   pageOverlayEl = overlay;

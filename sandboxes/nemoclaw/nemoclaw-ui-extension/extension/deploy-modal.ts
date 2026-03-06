@@ -13,7 +13,7 @@ import {
   ICON_CHIP,
   TARGET_ICONS,
 } from "./icons.ts";
-import { DEPLOY_TARGETS, getApiKey, type DeployTarget } from "./model-registry.ts";
+import { DEPLOY_TARGETS, getApiKey, isKeyConfigured, type DeployTarget } from "./model-registry.ts";
 
 // ---------------------------------------------------------------------------
 // State
@@ -153,8 +153,8 @@ function disableTargets(overlay: HTMLElement, disabled: boolean) {
 
 async function handleDeploy(target: DeployTarget, overlay: HTMLElement) {
   const apiKey = getApiKey(target);
-  if (!apiKey || apiKey.startsWith("__")) {
-    setStatus(overlay, "error", "API key not configured. Re-run install.sh with a valid .env file.");
+  if (!isKeyConfigured(apiKey)) {
+    setStatus(overlay, "error", `API key not configured. <a href="#" data-nemoclaw-goto="nemoclaw-api-keys">Add your keys</a> to get started.`);
     return;
   }
 
