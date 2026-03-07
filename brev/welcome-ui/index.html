@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NemoClaw — Agent Sandbox</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=7">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -82,87 +82,71 @@
         </button>
       </div>
       <div class="modal__body" id="install-body">
-        <!-- Step 1: API Key -->
-        <div id="install-step-key">
-          <p class="modal__text">
-            Enter your NVIDIA API key to power the OpenClaw agent. The key is passed into the
-            sandbox and never stored on this server.
-          </p>
-          <div class="form-field">
-            <label class="form-field__label" for="api-key-input">NVIDIA API Key</label>
-            <div class="form-field__row">
-              <input
-                id="api-key-input"
-                type="password"
-                class="form-field__input"
-                placeholder="nvapi-..."
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" class="form-field__toggle" id="toggle-key-vis" aria-label="Toggle visibility">
-                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
-            <a class="form-field__help" href="https://build.nvidia.com/models" target="_blank" rel="noopener noreferrer">
-              Get your key at build.nvidia.com
-            </a>
-          </div>
-          <button class="btn btn--primary" id="btn-install">
-            <svg viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
-            Install OpenClaw
-          </button>
-        </div>
 
-        <!-- Step 2: Progress -->
-        <div id="install-step-progress" hidden>
-          <div class="progress-steps">
-            <div class="progress-step" id="pstep-sandbox">
-              <div class="progress-step__icon"></div>
-              <div class="progress-step__content">
-                <div class="progress-step__title">Creating sandbox</div>
-                <div class="progress-step__desc">Setting up a secure NemoClaw sandbox with policy guardrails</div>
-              </div>
-            </div>
-            <div class="progress-step" id="pstep-gateway">
-              <div class="progress-step__icon"></div>
-              <div class="progress-step__content">
-                <div class="progress-step__title">Starting OpenClaw gateway</div>
-                <div class="progress-step__desc">Launching the agent gateway on port 18789</div>
-              </div>
-            </div>
-            <div class="progress-step" id="pstep-ready">
-              <div class="progress-step__icon"></div>
-              <div class="progress-step__content">
-                <div class="progress-step__title">Ready</div>
-                <div class="progress-step__desc">OpenClaw is running inside the NemoClaw sandbox</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 3: Success -->
-        <div id="install-step-success" hidden>
-          <div class="success-card">
-            <div class="success-card__icon">
-              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <h4 class="success-card__title">OpenClaw is running</h4>
-            <p class="success-card__desc">
-              The agent is live inside a NemoClaw sandbox. When it hits a policy denial, it will
-              diagnose the block and propose a policy update. You approve or deny from the UI.
+        <div id="install-main">
+          <!-- Zone A: Active user input — interactive from second zero -->
+          <div class="zone-input">
+            <p class="zone-input__desc">
+              Enter your NVIDIA API key below. Your secure sandbox is being
+              provisioned in the background so you'll be ready to go immediately.
             </p>
-            <a class="btn btn--primary" id="btn-open-openclaw" href="#" target="_blank" rel="noopener noreferrer">
-              Open OpenClaw
-              <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
-            </a>
+            <div class="form-field">
+              <label class="form-field__label" for="api-key-input">NVIDIA API Key</label>
+              <div class="form-field__row">
+                <input
+                  id="api-key-input"
+                  type="password"
+                  class="form-field__input"
+                  placeholder="nvapi-..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button type="button" class="form-field__toggle" id="toggle-key-vis" aria-label="Toggle visibility">
+                  <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <div class="form-field__footer">
+                <span class="form-field__hint" id="key-hint"></span>
+                <a class="form-field__help" href="https://build.nvidia.com/models" target="_blank" rel="noopener noreferrer">
+                  Get a key at build.nvidia.com
+                  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                </a>
+              </div>
+            </div>
           </div>
+
+          <!-- Zone B: Provisioning console — read-only system transparency -->
+          <div class="console" id="provision-console">
+            <div class="console__header">PROVISIONING STATUS</div>
+            <div class="console__body">
+              <div class="console__line" id="log-sandbox">
+                <span class="console__icon" id="log-sandbox-icon"></span>
+                <span class="console__text">Initializing secure NemoClaw sandbox...</span>
+              </div>
+              <div class="console__line" id="log-gateway">
+                <span class="console__icon" id="log-gateway-icon"></span>
+                <span class="console__text">Launching OpenClaw agent gateway...</span>
+              </div>
+              <div class="console__line console__line--success" id="log-ready" hidden>
+                <span class="console__icon"></span>
+                <span class="console__text">Environment ready.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CTA button -->
+          <button class="btn btn--primary btn--launch" id="btn-launch" disabled>
+            <svg class="btn__spinner" viewBox="0 0 24 24" width="16" height="16" fill="none" id="btn-spinner" hidden style="display:none"><circle cx="12" cy="12" r="10" fill="none"/></svg>
+            <span id="btn-launch-label">Waiting for API key...</span>
+            <svg class="btn__external-icon" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+          </button>
         </div>
 
         <!-- Error state -->
         <div id="install-step-error" hidden>
           <div class="error-card">
             <div class="error-card__icon">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="none"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
             </div>
             <h4 class="error-card__title">Something went wrong</h4>
             <p class="error-card__desc" id="error-message"></p>
@@ -246,6 +230,6 @@
     NemoClaw Sandbox &middot; NVIDIA
   </footer>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

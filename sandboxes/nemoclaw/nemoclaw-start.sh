@@ -63,15 +63,22 @@ openclaw onboard \
   --skip-skills \
   --skip-health \
   --auth-choice custom-api-key \
-  --custom-base-url "https://inference-api.nvidia.com/v1" \
+  --custom-base-url "https://inference.local/v1" \
   --custom-model-id "aws/anthropic/bedrock-claude-opus-4-6" \
-  --custom-api-key "${NVIDIA_API_KEY}" \
+  --custom-api-key "not-used" \
   --secret-input-mode plaintext \
   --custom-compatibility openai \
   --gateway-port 18789 \
   --gateway-bind loopback
 
 export NVIDIA_API_KEY=" "
+
+GATEWAY_PORT=18789
+if [ -z "$BREV_UI_URL" ]; then
+    BREV_UI_URL="https://${GATEWAY_PORT}0-${BREV_ENV_ID}.brevlab.com"
+fi
+export BREV_UI_URL
+
 python3 -c "
 import json, os
 cfg = json.load(open(os.environ['HOME'] + '/.openclaw/openclaw.json'))

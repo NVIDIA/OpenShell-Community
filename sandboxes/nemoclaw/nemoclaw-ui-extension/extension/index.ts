@@ -14,6 +14,8 @@ import "./styles.css";
 import { injectButton } from "./deploy-modal.ts";
 import { injectNavGroup, activateNemoPage, watchOpenClawNavClicks } from "./nav-group.ts";
 import { injectModelSelector, watchChatCompose } from "./model-selector.ts";
+import { ingestKeysFromUrl, DEFAULT_MODEL, resolveApiKey } from "./model-registry.ts";
+import { waitForClient, patchConfig } from "./gateway-bridge.ts";
 
 function inject(): boolean {
   const hasButton = injectButton();
@@ -36,10 +38,44 @@ function watchGotoLinks() {
   });
 }
 
+/**
+ * When API keys arrive via URL parameters (from the welcome UI), apply
+ * the default model's provider config so the gateway has a valid key
+ * immediately rather than the placeholder set during onboarding.
+ */
+function applyIngestedKeys(): void {
+  waitForClient().then(async () => {
+    const apiKey = resolveApiKey(DEFAULT_MODEL.keyType);
+    await patchConfig({
+      models: {
+        providers: {
+          [DEFAULT_MODEL.providerKey]: {
+            baseUrl: DEFAULT_MODEL.providerConfig.baseUrl,
+            api: DEFAULT_MODEL.providerConfig.api,
+            models: DEFAULT_MODEL.providerConfig.models,
+            apiKey,
+          },
+        },
+      },
+      agents: {
+        defaults: { model: { primary: DEFAULT_MODEL.modelRef } },
+      },
+    });
+  }).catch((err) => {
+    console.error("[NeMoClaw] Failed to apply ingested API key:", err);
+  });
+}
+
 function bootstrap() {
+  const keysIngested = ingestKeysFromUrl();
+
   watchOpenClawNavClicks();
   watchChatCompose();
   watchGotoLinks();
+
+  if (keysIngested) {
+    applyIngestedKeys();
+  }
 
   if (inject()) {
     injectModelSelector();

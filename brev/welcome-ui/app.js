@@ -12,22 +12,24 @@
   const closeInstall = $("#close-install");
   const closeInstr = $("#close-instructions");
 
-  // Path 1 elements
-  const stepKey = $("#install-step-key");
-  const stepProgress = $("#install-step-progress");
-  const stepSuccess = $("#install-step-success");
+  // Install modal elements
+  const installMain = $("#install-main");
   const stepError = $("#install-step-error");
   const apiKeyInput = $("#api-key-input");
   const toggleKeyVis = $("#toggle-key-vis");
-  const btnInstall = $("#btn-install");
+  const keyHint = $("#key-hint");
+  const btnLaunch = $("#btn-launch");
+  const btnLaunchLabel = $("#btn-launch-label");
+  const btnSpinner = $("#btn-spinner");
   const btnRetry = $("#btn-retry");
-  const btnOpenOpenclaw = $("#btn-open-openclaw");
   const errorMessage = $("#error-message");
 
-  // Progress steps
-  const pstepSandbox = $("#pstep-sandbox");
-  const pstepGateway = $("#pstep-gateway");
-  const pstepReady = $("#pstep-ready");
+  // Console log lines
+  const logSandbox = $("#log-sandbox");
+  const logSandboxIcon = $("#log-sandbox-icon");
+  const logGateway = $("#log-gateway");
+  const logGatewayIcon = $("#log-gateway-icon");
+  const logReady = $("#log-ready");
 
   // Path 2 elements
   const connectCmd = $("#connect-cmd");
@@ -37,6 +39,9 @@
 
   const iconEye = `<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
   const iconEyeOff = `<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" x2="23" y1="1" y2="23"/></svg>`;
+
+  const SPINNER_CHAR = "↻";
+  const CHECK_CHAR = "✓";
 
   // -- Modal helpers ---------------------------------------------------
 
@@ -83,22 +88,33 @@
     }
   });
 
-  // -- Progress step state machine ------------------------------------
+  // -- API key validation ---------------------------------------------
 
-  function setStepState(el, state) {
-    el.classList.remove("progress-step--active", "progress-step--done", "progress-step--error");
-    if (state) el.classList.add(`progress-step--${state}`);
+  function isApiKeyValid() {
+    const v = apiKeyInput.value.trim();
+    return v.startsWith("nvapi-") || v.startsWith("sk-");
   }
 
-  // -- Path 1: Install flow -------------------------------------------
+  // -- Console log helpers --------------------------------------------
 
-  function showInstallStep(step) {
-    stepKey.hidden = step !== "key";
-    stepProgress.hidden = step !== "progress";
-    stepSuccess.hidden = step !== "success";
-    stepError.hidden = step !== "error";
+  function setLogIcon(iconEl, state) {
+    if (state === "spin") {
+      iconEl.textContent = SPINNER_CHAR;
+      iconEl.className = "console__icon console__icon--spin";
+    } else if (state === "done") {
+      iconEl.textContent = CHECK_CHAR;
+      iconEl.className = "console__icon console__icon--done";
+    } else {
+      iconEl.textContent = "";
+      iconEl.className = "console__icon";
+    }
   }
 
+  // -- Install state ---------------------------------------------------
+
+  let sandboxReady = false;
+  let sandboxUrl = null;
+  let installTriggered = false;
   let pollTimer = null;
 
   function stopPolling() {
@@ -108,37 +124,100 @@
     }
   }
 
-  async function startInstall() {
-    const apiKey = apiKeyInput.value.trim();
-    if (!apiKey) {
-      apiKeyInput.focus();
-      apiKeyInput.classList.add("form-field__input--error");
-      setTimeout(() => apiKeyInput.classList.remove("form-field__input--error"), 1500);
-      return;
+  /**
+   * Four-state CTA button:
+   *  1. API empty  + tasks running   -> "Waiting for API key…"  (disabled)
+   *  2. API valid  + tasks running   -> "Provisioning Sandbox…" (disabled, spinner)
+   *  3. API empty  + tasks complete  -> "Waiting for API key…"  (disabled)
+   *  4. API valid  + tasks complete  -> "Open NemoClaw"          (enabled)
+   */
+  function updateButtonState() {
+    const keyValid = isApiKeyValid();
+    const keyRaw = apiKeyInput.value.trim();
+
+    // Hint feedback below input
+    if (keyRaw.length === 0) {
+      keyHint.textContent = "";
+      keyHint.className = "form-field__hint";
+    } else if (keyValid) {
+      keyHint.textContent = "Valid key format";
+      keyHint.className = "form-field__hint form-field__hint--ok";
+    } else {
+      keyHint.textContent = "Key must start with nvapi- or sk-";
+      keyHint.className = "form-field__hint form-field__hint--warn";
     }
 
-    showInstallStep("progress");
-    setStepState(pstepSandbox, "active");
-    setStepState(pstepGateway, null);
-    setStepState(pstepReady, null);
+    // Console "ready" line
+    if (sandboxReady && keyValid) {
+      logReady.hidden = false;
+      logReady.querySelector(".console__icon").textContent = CHECK_CHAR;
+      logReady.querySelector(".console__icon").className = "console__icon console__icon--done";
+    } else {
+      logReady.hidden = true;
+    }
+
+    if (sandboxReady && keyValid) {
+      btnLaunch.disabled = false;
+      btnLaunch.classList.add("btn--ready");
+      btnSpinner.hidden = true;
+      btnSpinner.style.display = "none";
+      btnLaunchLabel.textContent = "Open NemoClaw";
+    } else if (!sandboxReady && keyValid) {
+      btnLaunch.disabled = true;
+      btnLaunch.classList.remove("btn--ready");
+      btnSpinner.hidden = false;
+      btnSpinner.style.display = "";
+      btnLaunchLabel.textContent = "Provisioning Sandbox\u2026";
+    } else {
+      btnLaunch.disabled = true;
+      btnLaunch.classList.remove("btn--ready");
+      btnSpinner.hidden = true;
+      btnSpinner.style.display = "none";
+      btnLaunchLabel.textContent = "Waiting for API key\u2026";
+    }
+  }
+
+  function showMainView() {
+    installMain.hidden = false;
+    stepError.hidden = true;
+  }
+
+  function showError(msg) {
+    stopPolling();
+    installMain.hidden = true;
+    stepError.hidden = false;
+    errorMessage.textContent = msg;
+  }
+
+  async function triggerInstall() {
+    if (installTriggered) return;
+    installTriggered = true;
+
+    setLogIcon(logSandboxIcon, "spin");
+    setLogIcon(logGatewayIcon, null);
+    logReady.hidden = true;
+    updateButtonState();
 
     try {
       const res = await fetch("/api/install-openclaw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey }),
       });
       const data = await res.json();
 
       if (!data.ok) {
+        installTriggered = false;
         showError(data.error || "Failed to start sandbox creation");
         return;
       }
 
-      setStepState(pstepSandbox, "done");
-      setStepState(pstepGateway, "active");
+      setLogIcon(logSandboxIcon, "done");
+      logSandbox.querySelector(".console__text").textContent =
+        "Secure NemoClaw sandbox created.";
+      setLogIcon(logGatewayIcon, "spin");
       startPolling();
-    } catch (err) {
+    } catch {
+      installTriggered = false;
       showError("Could not reach the server. Please try again.");
     }
   }
@@ -152,13 +231,16 @@
 
         if (data.status === "running") {
           stopPolling();
-          setStepState(pstepGateway, "done");
-          setStepState(pstepReady, "done");
+          sandboxReady = true;
+          sandboxUrl = data.url || null;
 
-          btnOpenOpenclaw.href = data.url || "http://127.0.0.1:18789/";
-          showInstallStep("success");
+          setLogIcon(logGatewayIcon, "done");
+          logGateway.querySelector(".console__text").textContent =
+            "OpenClaw agent gateway online.";
+          updateButtonState();
         } else if (data.status === "error") {
           stopPolling();
+          installTriggered = false;
           showError(data.error || "Sandbox creation failed");
         }
       } catch {
@@ -167,39 +249,68 @@
     }, 3000);
   }
 
-  function showError(msg) {
-    stopPolling();
-    errorMessage.textContent = msg;
-    showInstallStep("error");
+  function openOpenClaw() {
+    if (!sandboxReady || !isApiKeyValid() || !sandboxUrl) return;
+
+    const apiKey = apiKeyInput.value.trim();
+    const url = new URL(sandboxUrl);
+    url.searchParams.set("nvapi", apiKey);
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
   }
 
   function resetInstall() {
-    showInstallStep("key");
-    setStepState(pstepSandbox, null);
-    setStepState(pstepGateway, null);
-    setStepState(pstepReady, null);
+    sandboxReady = false;
+    sandboxUrl = null;
+    installTriggered = false;
+    stopPolling();
+
+    setLogIcon(logSandboxIcon, null);
+    setLogIcon(logGatewayIcon, null);
+    logSandbox.querySelector(".console__text").textContent =
+      "Initializing secure NemoClaw sandbox...";
+    logGateway.querySelector(".console__text").textContent =
+      "Launching OpenClaw agent gateway...";
+    logReady.hidden = true;
+
+    showMainView();
+    updateButtonState();
+    triggerInstall();
   }
 
-  btnInstall.addEventListener("click", startInstall);
-  apiKeyInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") startInstall();
-  });
+  apiKeyInput.addEventListener("input", updateButtonState);
+  btnLaunch.addEventListener("click", openOpenClaw);
   btnRetry.addEventListener("click", resetInstall);
 
-  // -- Path 1: Check if sandbox already running on load ---------------
+  // -- Check if sandbox already running on load -----------------------
 
   async function checkExistingSandbox() {
     try {
       const res = await fetch("/api/sandbox-status");
       const data = await res.json();
+
       if (data.status === "running" && data.url) {
-        btnOpenOpenclaw.href = data.url;
-        showInstallStep("success");
+        sandboxReady = true;
+        sandboxUrl = data.url;
+        installTriggered = true;
+
+        setLogIcon(logSandboxIcon, "done");
+        logSandbox.querySelector(".console__text").textContent =
+          "Secure NemoClaw sandbox created.";
+        setLogIcon(logGatewayIcon, "done");
+        logGateway.querySelector(".console__text").textContent =
+          "OpenClaw agent gateway online.";
+        updateButtonState();
+
         showOverlay(overlayInstall);
       } else if (data.status === "creating") {
-        showInstallStep("progress");
-        setStepState(pstepSandbox, "done");
-        setStepState(pstepGateway, "active");
+        installTriggered = true;
+
+        setLogIcon(logSandboxIcon, "done");
+        logSandbox.querySelector(".console__text").textContent =
+          "Secure NemoClaw sandbox created.";
+        setLogIcon(logGatewayIcon, "spin");
+        updateButtonState();
+
         showOverlay(overlayInstall);
         startPolling();
       }
@@ -226,6 +337,12 @@
 
   cardOpenclaw.addEventListener("click", () => {
     showOverlay(overlayInstall);
+    showMainView();
+    if (!installTriggered) {
+      triggerInstall();
+    }
+    apiKeyInput.focus();
+    updateButtonState();
   });
 
   cardOther.addEventListener("click", () => {

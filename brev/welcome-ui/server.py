@@ -19,8 +19,11 @@ PORT = int(os.environ.get("PORT", 8081))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.environ.get("REPO_ROOT", os.path.join(ROOT, "..", ".."))
 SANDBOX_DIR = os.path.join(REPO_ROOT, "sandboxes", "nemoclaw")
+NEMOCLAW_IMAGE = "ghcr.io/nvidia/nemoclaw-community/sandboxes/nemoclaw:local"
+POLICY_FILE = os.path.join(SANDBOX_DIR, "policy.yaml")
 
 LOG_FILE = "/tmp/nemoclaw-sandbox-create.log"
+BREV_ENV_ID = os.environ.get("BREV_ENV_ID", "")
 
 _sandbox_lock = threading.Lock()
 _sandbox_state = {
@@ -29,6 +32,21 @@ _sandbox_state = {
     "url": None,
     "error": None,
 }
+
+
+def _build_openclaw_url(token: str | None) -> str:
+    """Build the externally reachable OpenClaw URL.
+
+    Uses the Cloudflare tunnel pattern from nemoclaw-start.sh when
+    BREV_ENV_ID is available, otherwise falls back to localhost.
+    """
+    if BREV_ENV_ID:
+        url = f"https://187890-{BREV_ENV_ID}.brevlab.com/"
+    else:
+        url = "http://127.0.0.1:18789/"
+    if token:
+        url += f"?token={token}"
+    return url
 
 
 def _port_open(host: str, port: int, timeout: float = 1.0) -> bool:
@@ -63,7 +81,7 @@ def _cleanup_existing_sandbox():
         pass
 
 
-def _run_sandbox_create(api_key: str, brev_ui_url: str):
+def _run_sandbox_create(brev_ui_url: str):
     """Background thread: runs nemoclaw sandbox create and monitors until ready."""
     global _sandbox_state
 
@@ -78,15 +96,16 @@ def _run_sandbox_create(api_key: str, brev_ui_url: str):
     # Use `env` to inject vars into the sandbox command.  Avoids the
     # nemoclaw -e flag which has a quoting bug that causes SSH to
     # misinterpret the export string as a cipher type.
+    # API keys are NOT passed here; they are injected client-side via
+    # URL parameters when the user opens the OpenClaw UI.
     cmd = [
         "nemoclaw", "sandbox", "create",
         "--name", "nemoclaw",
-        "--from", SANDBOX_DIR,
+        "--from", NEMOCLAW_IMAGE,
+        "--policy", POLICY_FILE,
         "--forward", "18789",
         "--",
         "env",
-        f"NVIDIA_INFERENCE_API_KEY={api_key}",
-        f"NVIDIA_INTEGRATE_API_KEY={api_key}",
         f"BREV_UI_URL={brev_ui_url}",
         "nemoclaw-start",
     ]
@@ -136,9 +155,7 @@ def _run_sandbox_create(api_key: str, brev_ui_url: str):
         while time.time() < deadline:
             if _port_open("127.0.0.1", 18789):
                 token = _read_openclaw_token()
-                url = "http://127.0.0.1:18789/"
-                if token:
-                    url += f"?token={token}"
+                url = _build_openclaw_url(token)
                 with _sandbox_lock:
                     _sandbox_state["status"] = "running"
                     _sandbox_state["url"] = url
@@ -194,17 +211,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # -- POST /api/install-openclaw ------------------------------------
 
     def _handle_install_openclaw(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(content_length) if content_length else b"{}"
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            return self._json_response(400, {"ok": False, "error": "Invalid JSON"})
-
-        api_key = data.get("apiKey", "").strip()
-        if not api_key:
-            return self._json_response(400, {"ok": False, "error": "apiKey is required"})
-
         with _sandbox_lock:
             if _sandbox_state["status"] == "creating":
                 return self._json_response(409, {
@@ -221,7 +227,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         thread = threading.Thread(
             target=_run_sandbox_create,
-            args=(api_key, brev_ui_url),
+            args=(brev_ui_url,),
             daemon=True,
         )
         thread.start()
@@ -236,9 +242,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         if state["status"] == "creating" and _port_open("127.0.0.1", 18789):
             token = _read_openclaw_token()
-            url = "http://127.0.0.1:18789/"
-            if token:
-                url += f"?token={token}"
+            url = _build_openclaw_url(token)
             with _sandbox_lock:
                 _sandbox_state["status"] = "running"
                 _sandbox_state["url"] = url

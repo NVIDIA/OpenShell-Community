@@ -49,6 +49,29 @@ export function isKeyConfigured(key: string): boolean {
   return !!key && !key.startsWith("__");
 }
 
+/**
+ * Read the `nvapi` URL search parameter (set by the welcome UI when
+ * opening the OpenClaw tab), store it in localStorage for both key
+ * types, and scrub the parameter from the URL so it doesn't linger
+ * in browser history.  Returns true if a key was ingested.
+ */
+export function ingestKeysFromUrl(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("nvapi");
+  if (!key) return false;
+
+  setInferenceApiKey(key);
+  setIntegrateApiKey(key);
+
+  params.delete("nvapi");
+  const qs = params.toString();
+  const clean = qs
+    ? `${window.location.pathname}?${qs}${window.location.hash}`
+    : `${window.location.pathname}${window.location.hash}`;
+  window.history.replaceState({}, "", clean);
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Key type — used by ModelEntry to resolve the right key at call time
 // ---------------------------------------------------------------------------
@@ -103,7 +126,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     modelRef: `${DEFAULT_PROVIDER_KEY}/aws/anthropic/bedrock-claude-opus-4-6`,
     keyType: "inference",
     providerConfig: {
-      baseUrl: "https://inference-api.nvidia.com/v1",
+      baseUrl: "https://inference.local/v1",
       api: "openai-completions",
       models: [
         {
