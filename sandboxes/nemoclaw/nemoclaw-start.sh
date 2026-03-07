@@ -14,12 +14,12 @@
 #   NVIDIA_INFERENCE_API_KEY   — key for inference-api.nvidia.com
 #   NVIDIA_INTEGRATE_API_KEY   — key for integrate.api.nvidia.com
 #
-# Usage:
-#   nemoclaw sandbox create --from nemoclaw-launchable-ui \
+# Usage (env vars inlined via env command to avoid nemoclaw -e quoting bug):
+#   nemoclaw sandbox create --name nemoclaw --from sandboxes/nemoclaw/ \
 #     --forward 18789 \
-#     -e NVIDIA_INFERENCE_API_KEY=<key> \
-#     -e NVIDIA_INTEGRATE_API_KEY=<key> \
-#     -- openclaw-start
+#     -- env NVIDIA_INFERENCE_API_KEY=<key> \
+#            NVIDIA_INTEGRATE_API_KEY=<key> \
+#            nemoclaw-start
 set -euo pipefail
 
 # --------------------------------------------------------------------------
@@ -27,22 +27,62 @@ set -euo pipefail
 #
 # The build bakes __NVIDIA_*_API_KEY__ placeholders into the bundled JS.
 # Replace them with the real values supplied via environment variables.
+#
+# /usr is read-only under Landlock, so sed -i (which creates a temp file
+# in the same directory) fails.  Instead we sed to /tmp and write back
+# via shell redirection (truncate-write to the existing inode).  If even
+# that is blocked, we skip gracefully — users can still enter keys via
+# the API Keys page in the OpenClaw UI.
 # --------------------------------------------------------------------------
 BUNDLE="$(npm root -g)/openclaw/dist/control-ui/assets/nemoclaw-devx.js"
 
 if [ -f "$BUNDLE" ]; then
-  [ -n "${NVIDIA_INFERENCE_API_KEY:-}" ] && \
-    sed -i "s|__NVIDIA_INFERENCE_API_KEY__|${NVIDIA_INFERENCE_API_KEY}|g" "$BUNDLE"
-  [ -n "${NVIDIA_INTEGRATE_API_KEY:-}" ] && \
-    sed -i "s|__NVIDIA_INTEGRATE_API_KEY__|${NVIDIA_INTEGRATE_API_KEY}|g" "$BUNDLE"
+  (
+    set +e
+    tmp="/tmp/_nemoclaw_bundle_$$"
+    cp "$BUNDLE" "$tmp" 2>/dev/null
+    if [ $? -ne 0 ]; then exit 0; fi
+    [ -n "${NVIDIA_INFERENCE_API_KEY:-}" ] && \
+      sed -i "s|__NVIDIA_INFERENCE_API_KEY__|${NVIDIA_INFERENCE_API_KEY}|g" "$tmp"
+    [ -n "${NVIDIA_INTEGRATE_API_KEY:-}" ] && \
+      sed -i "s|__NVIDIA_INTEGRATE_API_KEY__|${NVIDIA_INTEGRATE_API_KEY}|g" "$tmp"
+    cp "$tmp" "$BUNDLE" 2>/dev/null
+    rm -f "$tmp" 2>/dev/null
+  ) || echo "Note: API key injection into UI bundle skipped (read-only /usr). Keys can be set via the API Keys page."
 fi
 
 # --------------------------------------------------------------------------
 # Onboard and start the gateway
 # --------------------------------------------------------------------------
-openclaw onboard
+export NVIDIA_API_KEY="${NVIDIA_INFERENCE_API_KEY:- }"
+openclaw onboard \
+  --non-interactive \
+  --accept-risk \
+  --mode local \
+  --no-install-daemon \
+  --skip-skills \
+  --skip-health \
+  --auth-choice custom-api-key \
+  --custom-base-url "https://inference-api.nvidia.com/v1" \
+  --custom-model-id "aws/anthropic/bedrock-claude-opus-4-6" \
+  --custom-api-key "${NVIDIA_API_KEY}" \
+  --secret-input-mode plaintext \
+  --custom-compatibility openai \
+  --gateway-port 18789 \
+  --gateway-bind loopback
 
-nohup openclaw gateway run > /tmp/gateway.log 2>&1 &
+export NVIDIA_API_KEY=" "
+python3 -c "
+import json, os
+cfg = json.load(open(os.environ['HOME'] + '/.openclaw/openclaw.json'))
+cfg['gateway']['controlUi'] = {
+    'allowInsecureAuth': True,
+    'allowedOrigins': [os.environ['BREV_UI_URL']]
+}
+json.dump(cfg, open(os.environ['HOME'] + '/.openclaw/openclaw.json', 'w'), indent=2)
+"
+
+nohup openclaw gateway > /tmp/gateway.log 2>&1 &
 
 CONFIG_FILE="${HOME}/.openclaw/openclaw.json"
 token=$(grep -o '"token"\s*:\s*"[^"]*"' "${CONFIG_FILE}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)
