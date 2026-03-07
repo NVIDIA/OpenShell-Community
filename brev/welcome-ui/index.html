@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NemoClaw — Agent Sandbox</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <svg class="topbar__logo" viewBox="0 0 240 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M31.47 18.82c-2.07.01-4.04.46-5.79 1.35V14.5c1.75-.57 3.64-.89 5.6-.93 8.76-.2 15.94 5.86 15.94 14.47 0 7.77-5.36 12.69-10.91 14.2v-5.63c3.36-1.48 5.64-4.72 5.64-8.57 0-5.37-4.6-9.24-10.48-9.22zM25.68 33.57V20.17c-4.44 3.21-5.82 7.77-5.82 11.31 0 4.85 2.59 8.55 6.34 10.47h.02c5.7 2.91 14.87 1.63 20.56-4.2-4.82 3.7-12.3 4.78-17.3 1.82a10.58 10.58 0 0 1-3.8-6zm-.01-20.6v4.38a21.3 21.3 0 0 0-5.73 8.38c-.36-8.07 4.69-14.63 12.87-17.72-2.71.84-5.18 2.58-7.14 4.96z" fill="#76B900"/>
+        <path d="M72.46 13.12h5.2v22.26h13.66v4.5H72.46V13.12zm-11.22 0L54.2 31.8 47.08 13.12H41.3l10.04 26.76h5.64l10.12-26.76h-5.86zm-24.8 0h5.28v26.76H36.44V13.12zM93.4 13.12h8.12c9.42 0 15.26 5.94 15.26 13.38 0 7.44-5.84 13.38-15.26 13.38H93.4V13.12zm5.2 4.38V35.5h2.76c6.26 0 10.14-4.08 10.14-9s-3.88-9-10.14-9h-2.76zm23.76-4.38h5.2v26.76h-5.2V13.12zm21.14 0h-5.08l-10.56 26.76h5.48l2.12-5.7h10.96l2.14 5.7h5.56l-10.62-26.76zm-6.4 16.82 3.88-10.46 3.88 10.46h-7.76z" fill="#fff"/>
+      </svg>
+      <span class="topbar__divider"></span>
+      <span class="topbar__title">NemoClaw</span>
+      <span class="topbar__badge">Sandbox</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+    <section class="hero">
+      <div class="hero__icon">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h1 class="hero__heading">
+        Run Any AI Agent in<br>the <span>NemoClaw Sandbox</span>
+      </h1>
+      <p class="hero__sub">
+        NemoClaw lets any AI agent run in a secure sandbox with policy guardrails
+        the agent itself helps manage. One launchable, two paths.
+      </p>
+    </section>
+
+    <div class="cards">
+      <!-- Path 1: OpenClaw Web UI -->
+      <div class="card" id="card-openclaw">
+        <div class="card__icon">
+          <svg viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+        </div>
+        <div class="card__body">
+          <h2 class="card__title">Install OpenClaw</h2>
+          <p class="card__desc">Experience it first, learn later. One-click install of the OpenClaw coding agent with NemoClaw safety policies, sandboxing, and model routing. Everything in one browser tab.</p>
+        </div>
+        <div class="card__footer">
+          Get started
+          <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+
+      <!-- Path 2: CLI / TUI -->
+      <div class="card" id="card-other">
+        <div class="card__icon">
+          <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+        </div>
+        <div class="card__body">
+          <h2 class="card__title">Other Agents</h2>
+          <p class="card__desc">Bring your own agent. Run Claude Code, OpenCode, DeepAgents, or your own framework. Manage policies via the NemoClaw CLI and TUI from your laptop.</p>
+        </div>
+        <div class="card__footer">
+          View instructions
+          <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Path 1 Modal: Install OpenClaw -->
+  <div class="overlay" id="overlay-install" hidden>
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h3 class="modal__title">Install OpenClaw</h3>
+        <button class="modal__close" id="close-install">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal__body" id="install-body">
+        <!-- Step 1: API Key -->
+        <div id="install-step-key">
+          <p class="modal__text">
+            Enter your NVIDIA API key to power the OpenClaw agent. The key is passed into the
+            sandbox and never stored on this server.
+          </p>
+          <div class="form-field">
+            <label class="form-field__label" for="api-key-input">NVIDIA API Key</label>
+            <div class="form-field__row">
+              <input
+                id="api-key-input"
+                type="password"
+                class="form-field__input"
+                placeholder="nvapi-..."
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" class="form-field__toggle" id="toggle-key-vis" aria-label="Toggle visibility">
+                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <a class="form-field__help" href="https://build.nvidia.com/models" target="_blank" rel="noopener noreferrer">
+              Get your key at build.nvidia.com
+            </a>
+          </div>
+          <button class="btn btn--primary" id="btn-install">
+            <svg viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+            Install OpenClaw
+          </button>
+        </div>
+
+        <!-- Step 2: Progress -->
+        <div id="install-step-progress" hidden>
+          <div class="progress-steps">
+            <div class="progress-step" id="pstep-sandbox">
+              <div class="progress-step__icon"></div>
+              <div class="progress-step__content">
+                <div class="progress-step__title">Creating sandbox</div>
+                <div class="progress-step__desc">Setting up a secure NemoClaw sandbox with policy guardrails</div>
+              </div>
+            </div>
+            <div class="progress-step" id="pstep-gateway">
+              <div class="progress-step__icon"></div>
+              <div class="progress-step__content">
+                <div class="progress-step__title">Starting OpenClaw gateway</div>
+                <div class="progress-step__desc">Launching the agent gateway on port 18789</div>
+              </div>
+            </div>
+            <div class="progress-step" id="pstep-ready">
+              <div class="progress-step__icon"></div>
+              <div class="progress-step__content">
+                <div class="progress-step__title">Ready</div>
+                <div class="progress-step__desc">OpenClaw is running inside the NemoClaw sandbox</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Success -->
+        <div id="install-step-success" hidden>
+          <div class="success-card">
+            <div class="success-card__icon">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h4 class="success-card__title">OpenClaw is running</h4>
+            <p class="success-card__desc">
+              The agent is live inside a NemoClaw sandbox. When it hits a policy denial, it will
+              diagnose the block and propose a policy update. You approve or deny from the UI.
+            </p>
+            <a class="btn btn--primary" id="btn-open-openclaw" href="#" target="_blank" rel="noopener noreferrer">
+              Open OpenClaw
+              <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Error state -->
+        <div id="install-step-error" hidden>
+          <div class="error-card">
+            <div class="error-card__icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+            </div>
+            <h4 class="error-card__title">Something went wrong</h4>
+            <p class="error-card__desc" id="error-message"></p>
+            <button class="btn btn--secondary" id="btn-retry">Try again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Path 2 Modal: Other Agents -->
+  <div class="overlay" id="overlay-instructions" hidden>
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h3 class="modal__title">Bring Your Own Agent</h3>
+        <button class="modal__close" id="close-instructions">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__text">
+          Connect from your laptop, create a sandbox, and run any agent inside it.
+          The NemoClaw TUI on your machine surfaces policy recommendations from the agent.
+          You approve or deny &mdash; the sandbox boundary is never violated.
+        </p>
+
+        <div class="instructions-section">
+          <h4 class="instructions-section__title">1. Install NemoClaw CLI</h4>
+          <div class="code-block">
+            <span class="cmd">pip install nemoclaw</span>
+            <button class="copy-btn" data-copy="pip install nemoclaw" aria-label="Copy">
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="instructions-section">
+          <h4 class="instructions-section__title">2. Connect to this VM</h4>
+          <div class="code-block" id="connect-cmd-block">
+            <span class="cmd" id="connect-cmd">nemoclaw cluster connect &lt;loading...&gt;</span>
+            <button class="copy-btn" id="copy-connect" aria-label="Copy">
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="instructions-section">
+          <h4 class="instructions-section__title">3. Create a sandbox and run your agent</h4>
+          <div class="code-block"><span class="comment"># Claude Code</span>
+<span class="cmd">nemoclaw sandbox create -- claude</span>
+
+<span class="comment"># OpenCode</span>
+<span class="cmd">nemoclaw sandbox create -- opencode</span>
+
+<span class="comment"># Any agent</span>
+<span class="cmd">nemoclaw sandbox create -- your-agent-command</span></div>
+        </div>
+
+        <div class="instructions-section">
+          <h4 class="instructions-section__title">4. Manage policies with the TUI</h4>
+          <div class="code-block">
+            <span class="cmd">nemoclaw term</span>
+            <button class="copy-btn" data-copy="nemoclaw term" aria-label="Copy">
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <p class="modal__text" style="margin-top:10px">
+            When your agent hits a policy denial, it reads the policy, diagnoses the block,
+            and proposes an update. The TUI surfaces the recommendation:
+            <em>"Your sandbox wants to connect to pypi.org. Recommended policy update:
+            [allow pypi.org:443]. Approve?"</em>
+            You approve &mdash; the policy hot-reloads &mdash; the agent continues.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    NemoClaw Sandbox &middot; NVIDIA
+  </footer>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
