@@ -44,7 +44,6 @@ COMMENT_STYLES: dict[str, str] = {
 # Directories to skip entirely (relative to repo root).
 EXCLUDE_DIRS: set[str] = {
     ".git",
-    ".github",
     ".venv",
     "__pycache__",
 }

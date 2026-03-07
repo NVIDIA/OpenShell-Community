@@ -1,0 +1,144 @@
+THIRD-PARTY SOFTWARE NOTICES
+
+This file lists the third-party software packages used by NemoClaw Community,
+along with their respective licenses.
+
+================================================================================
+Docker Base Images
+================================================================================
+
+Image: ubuntu:24.04
+License: Various (see https://ubuntu.com/legal/intellectual-property-policy)
+URL: https://hub.docker.com/_/ubuntu
+
+Image: ghcr.io/astral-sh/uv:latest
+License: Apache-2.0 OR MIT
+URL: https://github.com/astral-sh/uv
+
+Image: docker/dockerfile:1.4 (BuildKit frontend)
+License: Apache-2.0
+URL: https://github.com/moby/buildkit
+
+================================================================================
+System Packages (APT — Ubuntu 24.04)
+================================================================================
+
+Package: build-essential
+License: GPL-2.0+
+URL: https://packages.ubuntu.com/noble/build-essential
+
+Package: ca-certificates
+License: GPL-2.0+
+URL: https://packages.ubuntu.com/noble/ca-certificates
+
+Package: curl
+License: MIT
+URL: https://packages.ubuntu.com/noble/curl
+
+Package: dnsutils
+License: MPL-2.0
+URL: https://packages.ubuntu.com/noble/dnsutils
+
+Package: gh (GitHub CLI)
+License: MIT
+URL: https://github.com/cli/cli
+
+Package: git
+License: GPL-2.0
+URL: https://packages.ubuntu.com/noble/git
+
+Package: iproute2
+License: GPL-2.0
+URL: https://packages.ubuntu.com/noble/iproute2
+
+Package: iputils-ping
+License: BSD-3-Clause
+URL: https://packages.ubuntu.com/noble/iputils-ping
+
+Package: nano
+License: GPL-3.0
+URL: https://packages.ubuntu.com/noble/nano
+
+Package: net-tools
+License: GPL-2.0+
+URL: https://packages.ubuntu.com/noble/net-tools
+
+Package: netcat-openbsd
+License: BSD-2-Clause
+URL: https://packages.ubuntu.com/noble/netcat-openbsd
+
+Package: nodejs (22.x via NodeSource)
+License: MIT
+URL: https://github.com/nodejs/node
+
+Package: python3
+License: PSF-2.0
+URL: https://packages.ubuntu.com/noble/python3
+
+Package: python3-pip
+License: MIT
+URL: https://packages.ubuntu.com/noble/python3-pip
+
+Package: python3-venv
+License: PSF-2.0
+URL: https://packages.ubuntu.com/noble/python3-venv
+
+Package: traceroute
+License: GPL-2.0
+URL: https://packages.ubuntu.com/noble/traceroute
+
+Package: vim-tiny
+License: Vim
+URL: https://packages.ubuntu.com/noble/vim-tiny
+
+================================================================================
+NPM Packages
+================================================================================
+
+Package: openclaw
+License: Apache-2.0
+URL: https://www.npmjs.com/package/openclaw
+
+================================================================================
+GitHub Actions
+================================================================================
+
+Action: actions/checkout@v4
+License: MIT
+URL: https://github.com/actions/checkout
+
+Action: actions/setup-python@v5
+License: MIT
+URL: https://github.com/actions/setup-python
+
+Action: docker/setup-qemu-action@v3
+License: Apache-2.0
+URL: https://github.com/docker/setup-qemu-action
+
+Action: docker/setup-buildx-action@v3
+License: Apache-2.0
+URL: https://github.com/docker/setup-buildx-action
+
+Action: docker/login-action@v3
+License: Apache-2.0
+URL: https://github.com/docker/login-action
+
+Action: docker/metadata-action@v5
+License: Apache-2.0
+URL: https://github.com/docker/metadata-action
+
+Action: docker/build-push-action@v6
+License: Apache-2.0
+URL: https://github.com/docker/build-push-action
+
+Action: gsactions/dco-check@v1.1.1
+License: ISC
+URL: https://github.com/gsactions/dco-check
+
+================================================================================
+CI Runtime Images
+================================================================================
+
+Image: registry:2
+License: Apache-2.0
+URL: https://hub.docker.com/_/registry
