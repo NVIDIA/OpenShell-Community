@@ -74,22 +74,43 @@ openclaw onboard \
 export NVIDIA_API_KEY=" "
 
 GATEWAY_PORT=18789
-if [ -z "$BREV_UI_URL" ]; then
-    BREV_UI_URL="https://${GATEWAY_PORT}0-${BREV_ENV_ID}.brevlab.com"
+
+# Derive the Brev environment ID so we can build the correct gateway origin.
+# BREV_UI_URL (if set) points at the *welcome UI* port, not the gateway port,
+# so we must always compute the gateway origin separately.
+if [ -z "${BREV_ENV_ID:-}" ] && [ -n "${BREV_UI_URL:-}" ]; then
+    BREV_ENV_ID=$(echo "$BREV_UI_URL" | sed -n 's|.*//[0-9]*-\([^.]*\)\.brevlab\.com.*|\1|p')
 fi
-export BREV_UI_URL
+
+if [ -n "${BREV_ENV_ID:-}" ]; then
+    export OPENCLAW_ORIGIN="https://${GATEWAY_PORT}0-${BREV_ENV_ID}.brevlab.com"
+else
+    export OPENCLAW_ORIGIN="http://127.0.0.1:${GATEWAY_PORT}"
+fi
 
 python3 -c "
 import json, os
 cfg = json.load(open(os.environ['HOME'] + '/.openclaw/openclaw.json'))
 cfg['gateway']['controlUi'] = {
     'allowInsecureAuth': True,
-    'allowedOrigins': [os.environ['BREV_UI_URL']]
+    'allowedOrigins': [os.environ['OPENCLAW_ORIGIN']]
 }
 json.dump(cfg, open(os.environ['HOME'] + '/.openclaw/openclaw.json', 'w'), indent=2)
 "
 
 nohup openclaw gateway > /tmp/gateway.log 2>&1 &
+
+# Auto-approve pending device pairing requests so the browser is paired
+# before the user notices the "pairing required" prompt in the Control UI.
+(
+  _pair_deadline=$(($(date +%s) + 300))
+  while [ "$(date +%s)" -lt "$_pair_deadline" ]; do
+    sleep 0.5
+    if openclaw devices approve --latest --json 2>/dev/null | grep -q '"ok"'; then
+      echo "[auto-pair] Approved pending device pairing request."
+    fi
+  done
+) >> /tmp/gateway.log 2>&1 &
 
 CONFIG_FILE="${HOME}/.openclaw/openclaw.json"
 token=$(grep -o '"token"\s*:\s*"[^"]*"' "${CONFIG_FILE}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)

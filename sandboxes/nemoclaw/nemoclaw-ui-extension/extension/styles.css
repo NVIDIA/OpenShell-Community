@@ -597,29 +597,71 @@ main.content {
 }
 
 /* ===========================================
-   Model Switching — Suppress OpenClaw disconnect artifacts
+   Initial Connection — Hide the entire app until gateway pairing completes.
+   The OpenClaw UI uses Lit Web Components with Shadow DOM, so external
+   CSS cannot target error elements inside the shadow root. Instead we
+   hide the whole <openclaw-app> custom element (which lives in the
+   light DOM) and show a branded loading overlay on top.
    =========================================== */
 
-body.nemoclaw-switching .card.chat > .callout {
-  display: none !important;
+body:not([data-nemoclaw-ready]) openclaw-app {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
-body.nemoclaw-switching .statusDot:not(.ok) {
-  visibility: hidden;
+/* Loading overlay shown while gateway connects + auto-pairs */
+.nemoclaw-connect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--bg, #12141a);
+  color: var(--text, #e4e4e7);
+  font-family: system-ui, -apple-system, sans-serif;
+  transition: opacity 400ms ease;
 }
 
-body.nemoclaw-switching .topbar-status .pill .mono {
-  visibility: hidden;
+:root[data-theme="light"] .nemoclaw-connect-overlay {
+  background: var(--bg-content, #f8f8fa);
+  color: #1a1a1a;
 }
 
-body.nemoclaw-switching .chat-compose textarea[disabled] {
-  opacity: 1 !important;
-  color: var(--text, #e4e4e7) !important;
-  cursor: text;
+body[data-nemoclaw-ready] .nemoclaw-connect-overlay {
+  opacity: 0;
+  pointer-events: none;
 }
 
-body.nemoclaw-switching .chat-compose__actions button[disabled] {
-  opacity: 0.6;
+.nemoclaw-connect-overlay__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(118, 185, 0, 0.2);
+  border-top-color: #76B900;
+  border-radius: 50%;
+  animation: nemoclaw-spin 0.8s linear infinite;
+}
+
+.nemoclaw-connect-overlay__text {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--muted, #71717a);
+}
+
+/* ===========================================
+   Model Switching — Suppress OpenClaw disconnect artifacts.
+   The OpenClaw UI renders inside Shadow DOM so we cannot target
+   individual elements with external CSS.  Instead we reduce the
+   whole app's opacity during the brief config restart.
+   =========================================== */
+
+body.nemoclaw-switching openclaw-app {
+  opacity: 0.4 !important;
+  pointer-events: none !important;
+  transition: opacity 200ms ease;
 }
 
 /* ===========================================
