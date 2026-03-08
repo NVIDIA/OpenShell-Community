@@ -15,7 +15,7 @@ import { injectButton } from "./deploy-modal.ts";
 import { injectNavGroup, activateNemoPage, watchOpenClawNavClicks } from "./nav-group.ts";
 import { injectModelSelector, watchChatCompose } from "./model-selector.ts";
 import { ingestKeysFromUrl, DEFAULT_MODEL, resolveApiKey } from "./model-registry.ts";
-import { waitForClient, patchConfig } from "./gateway-bridge.ts";
+import { waitForClient, patchConfig, waitForReconnect } from "./gateway-bridge.ts";
 
 function inject(): boolean {
   const hasButton = injectButton();
@@ -66,7 +66,37 @@ function applyIngestedKeys(): void {
   });
 }
 
+/**
+ * Insert a full-screen loading overlay that covers the OpenClaw UI while the
+ * gateway connects and auto-pairs the device.  The overlay is styled via
+ * styles.css and is automatically faded out once `data-nemoclaw-ready` is set
+ * on <body>.  We remove it from the DOM after the CSS transition completes.
+ */
+function showConnectOverlay(): void {
+  if (document.querySelector(".nemoclaw-connect-overlay")) return;
+  const overlay = document.createElement("div");
+  overlay.className = "nemoclaw-connect-overlay";
+  overlay.setAttribute("aria-live", "polite");
+  overlay.innerHTML =
+    '<div class="nemoclaw-connect-overlay__spinner"></div>' +
+    '<div class="nemoclaw-connect-overlay__text">Auto-approving device pairing. Hang tight...</div>';
+  document.body.prepend(overlay);
+}
+
+function revealApp(): void {
+  document.body.setAttribute("data-nemoclaw-ready", "");
+  const overlay = document.querySelector(".nemoclaw-connect-overlay");
+  if (overlay) {
+    overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+    setTimeout(() => overlay.remove(), 600);
+  }
+}
+
 function bootstrap() {
+  showConnectOverlay();
+
+  waitForReconnect(30_000).then(revealApp).catch(revealApp);
+
   const keysIngested = ingestKeysFromUrl();
 
   watchOpenClawNavClicks();

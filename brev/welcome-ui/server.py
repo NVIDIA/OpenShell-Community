@@ -24,6 +24,7 @@ POLICY_FILE = os.path.join(SANDBOX_DIR, "policy.yaml")
 
 LOG_FILE = "/tmp/nemoclaw-sandbox-create.log"
 BREV_ENV_ID = os.environ.get("BREV_ENV_ID", "")
+_detected_brev_id = ""
 
 _sandbox_lock = threading.Lock()
 _sandbox_state = {
@@ -34,14 +35,31 @@ _sandbox_state = {
 }
 
 
+def _extract_brev_id(host: str) -> str:
+    """Extract the Brev environment ID from a Host header like '80810-xxx.brevlab.com'."""
+    match = re.match(r"\d+-(.+?)\.brevlab\.com", host)
+    return match.group(1) if match else ""
+
+
+def _maybe_detect_brev_id(host: str) -> None:
+    """Cache the Brev environment ID from the request Host header (idempotent)."""
+    global _detected_brev_id
+    if not _detected_brev_id:
+        brev_id = _extract_brev_id(host)
+        if brev_id:
+            _detected_brev_id = brev_id
+
+
 def _build_openclaw_url(token: str | None) -> str:
     """Build the externally reachable OpenClaw URL.
 
     Uses the Cloudflare tunnel pattern from nemoclaw-start.sh when
-    BREV_ENV_ID is available, otherwise falls back to localhost.
+    BREV_ENV_ID is available (or detected from the request Host header),
+    otherwise falls back to localhost.
     """
-    if BREV_ENV_ID:
-        url = f"https://187890-{BREV_ENV_ID}.brevlab.com/"
+    brev_id = BREV_ENV_ID or _detected_brev_id
+    if brev_id:
+        url = f"https://187890-{brev_id}.brevlab.com/"
     else:
         url = "http://127.0.0.1:18789/"
     if token:
@@ -68,6 +86,21 @@ def _read_openclaw_token() -> str | None:
     except FileNotFoundError:
         pass
     return None
+
+
+def _gateway_log_ready() -> bool:
+    """True once nemoclaw-start.sh has launched the OpenClaw gateway.
+
+    The startup script prints this sentinel *after* ``openclaw gateway``
+    has been backgrounded and the auth token extracted, so its presence
+    in the log is a reliable readiness signal — unlike a bare port check
+    which fires as soon as the forwarding tunnel opens.
+    """
+    try:
+        with open(LOG_FILE) as f:
+            return "OpenClaw gateway starting in background" in f.read()
+    except FileNotFoundError:
+        return False
 
 
 def _cleanup_existing_sandbox():
@@ -153,8 +186,14 @@ def _run_sandbox_create(brev_ui_url: str):
 
         deadline = time.time() + 120
         while time.time() < deadline:
-            if _port_open("127.0.0.1", 18789):
+            if _gateway_log_ready() and _port_open("127.0.0.1", 18789):
                 token = _read_openclaw_token()
+                if token is None:
+                    for _ in range(5):
+                        time.sleep(1)
+                        token = _read_openclaw_token()
+                        if token is not None:
+                            break
                 url = _build_openclaw_url(token)
                 with _sandbox_lock:
                     _sandbox_state["status"] = "running"
@@ -197,11 +236,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # -- Routing --------------------------------------------------------
 
     def do_POST(self):
+        _maybe_detect_brev_id(self.headers.get("Host", ""))
         if self.path == "/api/install-openclaw":
             return self._handle_install_openclaw()
         self.send_error(404)
 
     def do_GET(self):
+        _maybe_detect_brev_id(self.headers.get("Host", ""))
         if self.path == "/api/sandbox-status":
             return self._handle_sandbox_status()
         if self.path == "/api/connection-details":
@@ -240,7 +281,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         with _sandbox_lock:
             state = dict(_sandbox_state)
 
-        if state["status"] == "creating" and _port_open("127.0.0.1", 18789):
+        if (state["status"] == "creating"
+                and _gateway_log_ready()
+                and _port_open("127.0.0.1", 18789)):
             token = _read_openclaw_token()
             url = _build_openclaw_url(token)
             with _sandbox_lock:

@@ -36,8 +36,9 @@ RUN set -e; \
       --bundle \
       --format=esm \
       --outfile="$UI_DIR/assets/nemoclaw-devx.js"; \
-    sed -i 's|</head>|<link rel="stylesheet" href="./assets/nemoclaw-devx.css">\n</head>|' "$UI_DIR/index.html"; \
-    sed -i 's|</head>|<script type="module" src="./assets/nemoclaw-devx.js"></script>\n</head>|' "$UI_DIR/index.html"; \
+    HASH=$(md5sum "$UI_DIR/assets/nemoclaw-devx.js" | cut -c1-8); \
+    sed -i "s|</head>|<link rel=\"stylesheet\" href=\"./assets/nemoclaw-devx.css?v=${HASH}\">\n</head>|" "$UI_DIR/index.html"; \
+    sed -i "s|</head>|<script type=\"module\" src=\"./assets/nemoclaw-devx.js?v=${HASH}\"></script>\n</head>|" "$UI_DIR/index.html"; \
     npm uninstall -g esbuild
 
 ENTRYPOINT ["/bin/bash"]
