@@ -10,14 +10,20 @@
 # placeholder API keys.  At startup this script substitutes the real keys from
 # environment variables into the bundled JS, then launches the gateway.
 #
-# Required env vars (for NVIDIA model endpoints):
+# Required env vars:
+#   CHAT_UI_URL                — URL where the chat UI will be accessed
+#                                (e.g. http://127.0.0.1:18789 for local,
+#                                 https://187890-<id>.brevlab.com for Brev)
+#
+# Optional env vars (for NVIDIA model endpoints):
 #   NVIDIA_INFERENCE_API_KEY   — key for inference-api.nvidia.com
 #   NVIDIA_INTEGRATE_API_KEY   — key for integrate.api.nvidia.com
 #
 # Usage (env vars inlined via env command to avoid nemoclaw -e quoting bug):
 #   nemoclaw sandbox create --name nemoclaw --from sandboxes/nemoclaw/ \
 #     --forward 18789 \
-#     -- env NVIDIA_INFERENCE_API_KEY=<key> \
+#     -- env CHAT_UI_URL=http://127.0.0.1:18789 \
+#            NVIDIA_INFERENCE_API_KEY=<key> \
 #            NVIDIA_INTEGRATE_API_KEY=<key> \
 #            nemoclaw-start
 set -euo pipefail
@@ -75,25 +81,27 @@ export NVIDIA_API_KEY=" "
 
 GATEWAY_PORT=18789
 
-# Derive the Brev environment ID so we can build the correct gateway origin.
-# BREV_UI_URL (if set) points at the *welcome UI* port, not the gateway port,
-# so we must always compute the gateway origin separately.
-if [ -z "${BREV_ENV_ID:-}" ] && [ -n "${BREV_UI_URL:-}" ]; then
-    BREV_ENV_ID=$(echo "$BREV_UI_URL" | sed -n 's|.*//[0-9]*-\([^.]*\)\.brevlab\.com.*|\1|p')
-fi
-
-if [ -n "${BREV_ENV_ID:-}" ]; then
-    export OPENCLAW_ORIGIN="https://${GATEWAY_PORT}0-${BREV_ENV_ID}.brevlab.com"
-else
-    export OPENCLAW_ORIGIN="http://127.0.0.1:${GATEWAY_PORT}"
+if [ -z "${CHAT_UI_URL:-}" ]; then
+    echo "Error: CHAT_UI_URL environment variable is required." >&2
+    echo "Set it to the URL where the chat UI will be accessed, e.g.:" >&2
+    echo "  Local:  CHAT_UI_URL=http://127.0.0.1:18789" >&2
+    echo "  Brev:   CHAT_UI_URL=https://187890-<brev-id>.brevlab.com" >&2
+    exit 1
 fi
 
 python3 -c "
 import json, os
+from urllib.parse import urlparse
 cfg = json.load(open(os.environ['HOME'] + '/.openclaw/openclaw.json'))
+local = 'http://127.0.0.1:${GATEWAY_PORT}'
+parsed = urlparse(os.environ['CHAT_UI_URL'])
+chat_origin = f'{parsed.scheme}://{parsed.netloc}'
+origins = [local]
+if chat_origin != local:
+    origins.append(chat_origin)
 cfg['gateway']['controlUi'] = {
     'allowInsecureAuth': True,
-    'allowedOrigins': [os.environ['OPENCLAW_ORIGIN']]
+    'allowedOrigins': origins,
 }
 json.dump(cfg, open(os.environ['HOME'] + '/.openclaw/openclaw.json', 'w'), indent=2)
 "
@@ -115,12 +123,20 @@ nohup openclaw gateway > /tmp/gateway.log 2>&1 &
 CONFIG_FILE="${HOME}/.openclaw/openclaw.json"
 token=$(grep -o '"token"\s*:\s*"[^"]*"' "${CONFIG_FILE}" 2>/dev/null | head -1 | cut -d'"' -f4 || true)
 
+CHAT_UI_BASE="${CHAT_UI_URL%/}"
+if [ -n "${token}" ]; then
+    LOCAL_URL="http://127.0.0.1:18789/?token=${token}"
+    CHAT_URL="${CHAT_UI_BASE}/?token=${token}"
+else
+    LOCAL_URL="http://127.0.0.1:18789/"
+    CHAT_URL="${CHAT_UI_BASE}/"
+fi
+
 echo ""
 echo "OpenClaw gateway starting in background."
-echo "  Logs: /tmp/gateway.log"
-if [ -n "${token}" ]; then
-    echo "  UI:   http://127.0.0.1:18789/?token=${token}"
-else
-    echo "  UI:   http://127.0.0.1:18789/"
+echo "  Logs:  /tmp/gateway.log"
+echo "  UI:    ${CHAT_URL}"
+if [ "${CHAT_UI_BASE}" != "http://127.0.0.1:18789" ]; then
+    echo "  Local: ${LOCAL_URL}"
 fi
 echo ""

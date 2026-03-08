@@ -28,10 +28,20 @@ docker build -t nemoclaw sandboxes/nemoclaw/
 ```bash
 nemoclaw sandbox create --from sandboxes/nemoclaw \
   --forward 18789 \
-  -- nemoclaw-start
+  -- env CHAT_UI_URL=http://127.0.0.1:18789 \
+         nemoclaw-start
 ```
 
 The `--from <path>` flag builds the image and imports it into the cluster automatically.
+
+`CHAT_UI_URL` is the URL where the chat UI will be accessed. The origin is
+added to `allowedOrigins` so the browser can authenticate without the slow
+device-pairing fallback. Examples:
+
+| Environment | `CHAT_UI_URL` |
+|---|---|
+| Local | `http://127.0.0.1:18789` |
+| Brev | `https://187890-<id>.brevlab.com` |
 
 `nemoclaw-start` then:
 

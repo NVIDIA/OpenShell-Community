@@ -20,7 +20,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.environ.get("REPO_ROOT", os.path.join(ROOT, "..", ".."))
 SANDBOX_DIR = os.path.join(REPO_ROOT, "sandboxes", "nemoclaw")
 NEMOCLAW_IMAGE = "ghcr.io/nvidia/nemoclaw-community/sandboxes/nemoclaw:local"
-POLICY_FILE = os.path.join(SANDBOX_DIR, "policy.yaml")
+# POLICY_FILE = os.path.join(SANDBOX_DIR, "policy.yaml")
 
 LOG_FILE = "/tmp/nemoclaw-sandbox-create.log"
 BREV_ENV_ID = os.environ.get("BREV_ENV_ID", "")
@@ -114,7 +114,7 @@ def _cleanup_existing_sandbox():
         pass
 
 
-def _run_sandbox_create(brev_ui_url: str):
+def _run_sandbox_create():
     """Background thread: runs nemoclaw sandbox create and monitors until ready."""
     global _sandbox_state
 
@@ -124,6 +124,8 @@ def _run_sandbox_create(brev_ui_url: str):
         _sandbox_state["url"] = None
 
     _cleanup_existing_sandbox()
+
+    chat_ui_url = _build_openclaw_url(token=None)
 
     env = os.environ.copy()
     # Use `env` to inject vars into the sandbox command.  Avoids the
@@ -135,11 +137,10 @@ def _run_sandbox_create(brev_ui_url: str):
         "nemoclaw", "sandbox", "create",
         "--name", "nemoclaw",
         "--from", NEMOCLAW_IMAGE,
-        "--policy", POLICY_FILE,
         "--forward", "18789",
         "--",
         "env",
-        f"BREV_UI_URL={brev_ui_url}",
+        f"CHAT_UI_URL={chat_ui_url}",
         "nemoclaw-start",
     ]
 
@@ -264,11 +265,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     "error": "Sandbox is already running",
                 })
 
-        brev_ui_url = f"http://{self.headers.get('Host', 'localhost:8080')}"
+        _maybe_detect_brev_id(self.headers.get("Host", ""))
 
         thread = threading.Thread(
             target=_run_sandbox_create,
-            args=(brev_ui_url,),
             daemon=True,
         )
         thread.start()
