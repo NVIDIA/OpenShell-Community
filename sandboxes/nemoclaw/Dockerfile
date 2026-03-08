@@ -20,6 +20,10 @@ USER root
 COPY nemoclaw-start.sh /usr/local/bin/nemoclaw-start
 RUN chmod +x /usr/local/bin/nemoclaw-start
 
+# Install the policy reverse proxy (sits in front of the OpenClaw gateway,
+# intercepts /api/policy to read/write /etc/navigator/policy.yaml)
+COPY policy-proxy.js /usr/local/lib/policy-proxy.js
+
 # Stage the NeMoClaw DevX extension source
 COPY nemoclaw-ui-extension/extension/ /opt/nemoclaw-devx/
 
@@ -29,8 +33,11 @@ COPY nemoclaw-ui-extension/extension/ /opt/nemoclaw-devx/
 # add <script>/<link> tags to index.html.
 # API key placeholders (__NVIDIA_*_API_KEY__) stay as literal strings in the
 # bundle; they are substituted at container startup from environment variables.
+# js-yaml is installed locally so esbuild can bundle it for browser-side YAML
+# parsing in the policy page; the node_modules are removed after bundling.
 RUN set -e; \
     npm install -g esbuild; \
+    cd /opt/nemoclaw-devx && npm install --production; \
     UI_DIR="$(npm root -g)/openclaw/dist/control-ui"; \
     esbuild /opt/nemoclaw-devx/index.ts \
       --bundle \
@@ -39,6 +46,7 @@ RUN set -e; \
     HASH=$(md5sum "$UI_DIR/assets/nemoclaw-devx.js" | cut -c1-8); \
     sed -i "s|</head>|<link rel=\"stylesheet\" href=\"./assets/nemoclaw-devx.css?v=${HASH}\">\n</head>|" "$UI_DIR/index.html"; \
     sed -i "s|</head>|<script type=\"module\" src=\"./assets/nemoclaw-devx.js?v=${HASH}\"></script>\n</head>|" "$UI_DIR/index.html"; \
-    npm uninstall -g esbuild
+    npm uninstall -g esbuild; \
+    rm -rf /opt/nemoclaw-devx/node_modules
 
 ENTRYPOINT ["/bin/bash"]

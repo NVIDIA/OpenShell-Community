@@ -1020,3 +1020,1496 @@ body.nemoclaw-switching openclaw-app {
     width: 100%;
   }
 }
+
+/* ===========================================
+   Policy Page
+   =========================================== */
+
+.nemoclaw-policy-page {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 8px 0 100px;
+  animation: nemoclaw-fade-in 250ms ease;
+}
+
+/* Loading / error */
+
+.nemoclaw-policy-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 80px 24px;
+  color: var(--muted, #71717a);
+  font-size: 14px;
+}
+
+.nemoclaw-policy-loading__spinner {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  color: #76B900;
+}
+
+.nemoclaw-policy-loading__spinner svg {
+  width: 18px;
+  height: 18px;
+  animation: nemoclaw-spin 1s linear infinite;
+}
+
+.nemoclaw-policy-error {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--muted, #71717a);
+  font-size: 14px;
+}
+
+.nemoclaw-policy-error__detail {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--danger, #ef4444);
+  margin: 8px 0 16px;
+}
+
+.nemoclaw-policy-retry-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  color: var(--text, #e4e4e7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.nemoclaw-policy-retry-btn:hover {
+  border-color: #76B900;
+  background: rgba(118, 185, 0, 0.06);
+}
+
+/* Intro */
+
+.nemoclaw-policy-intro {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 20px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--bg-elevated, #1a1d25);
+  margin-bottom: 28px;
+}
+
+:root[data-theme="light"] .nemoclaw-policy-intro {
+  background: #fff;
+}
+
+.nemoclaw-policy-intro__icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(118, 185, 0, 0.10);
+  display: grid;
+  place-items: center;
+  color: #76B900;
+}
+
+.nemoclaw-policy-intro__icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-intro__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-strong, #fafafa);
+  margin: 0 0 6px;
+}
+
+.nemoclaw-policy-intro__text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted, #71717a);
+  margin: 0 0 10px;
+}
+
+.nemoclaw-policy-intro__badges {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Badges */
+
+.nemoclaw-policy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.nemoclaw-policy-badge svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-badge--locked {
+  border: 1px solid rgba(161, 161, 170, 0.25);
+  background: rgba(161, 161, 170, 0.08);
+  color: var(--muted, #a1a1aa);
+}
+
+.nemoclaw-policy-badge--editable {
+  border: 1px solid rgba(118, 185, 0, 0.3);
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+/* Section */
+
+.nemoclaw-policy-section {
+  margin-bottom: 28px;
+}
+
+.nemoclaw-policy-section__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.nemoclaw-policy-section__icon {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-policy-section__icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-section__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-strong, #fafafa);
+  margin: 0;
+}
+
+.nemoclaw-policy-section__desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted, #71717a);
+  margin: 0 0 16px;
+}
+
+.nemoclaw-policy-section__desc code {
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+/* Immutable cards */
+
+.nemoclaw-policy-immutable-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.nemoclaw-policy-card {
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  padding: 16px;
+  background: var(--bg-elevated, #1a1d25);
+}
+
+:root[data-theme="light"] .nemoclaw-policy-card {
+  background: #fff;
+}
+
+.nemoclaw-policy-card--locked {
+  opacity: 0.85;
+}
+
+.nemoclaw-policy-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.nemoclaw-policy-card__icon {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-policy-card__icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong, #fafafa);
+  flex: 1;
+}
+
+.nemoclaw-policy-card__lock {
+  display: flex;
+  width: 14px;
+  height: 14px;
+  color: var(--muted, #71717a);
+  opacity: 0.5;
+}
+
+.nemoclaw-policy-card__lock svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-card__desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted, #71717a);
+  margin: 0 0 12px;
+}
+
+.nemoclaw-policy-card__content {
+  border-top: 1px solid var(--border, #27272a);
+  padding-top: 12px;
+}
+
+/* Property rows inside cards */
+
+.nemoclaw-policy-prop {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.nemoclaw-policy-prop__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #a1a1aa);
+  white-space: nowrap;
+}
+
+.nemoclaw-policy-prop__value {
+  font-size: 13px;
+  color: var(--text, #e4e4e7);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.nemoclaw-policy-muted {
+  font-size: 12px;
+  color: var(--muted, #71717a);
+  font-style: italic;
+}
+
+/* Path list (read-only / read-write) */
+
+.nemoclaw-policy-pathlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.nemoclaw-policy-path {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(161, 161, 170, 0.08);
+  color: var(--text, #e4e4e7);
+  border: 1px solid var(--border, #27272a);
+}
+
+.nemoclaw-policy-path--rw {
+  background: rgba(118, 185, 0, 0.06);
+  border-color: rgba(118, 185, 0, 0.2);
+  color: #76B900;
+}
+
+/* Network policy cards */
+
+.nemoclaw-policy-netpolicies {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.nemoclaw-policy-netcard {
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  overflow: hidden;
+  transition: border-color 150ms ease;
+}
+
+:root[data-theme="light"] .nemoclaw-policy-netcard {
+  background: #fff;
+}
+
+.nemoclaw-policy-netcard--expanded {
+  border-color: rgba(118, 185, 0, 0.3);
+}
+
+.nemoclaw-policy-netcard__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+}
+
+.nemoclaw-policy-netcard__toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+}
+
+.nemoclaw-policy-netcard__chevron {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  color: var(--muted, #71717a);
+  transition: transform 200ms ease;
+}
+
+.nemoclaw-policy-netcard__chevron svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-netcard--expanded .nemoclaw-policy-netcard__chevron {
+  transform: rotate(90deg);
+  color: #76B900;
+}
+
+.nemoclaw-policy-netcard__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong, #fafafa);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.nemoclaw-policy-netcard__summary {
+  font-size: 12px;
+  color: var(--muted, #71717a);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.nemoclaw-policy-netcard__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.nemoclaw-policy-netcard__body {
+  border-top: 1px solid var(--border, #27272a);
+  padding: 14px;
+}
+
+/* Icon buttons (shared) */
+
+.nemoclaw-policy-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--muted, #71717a);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.nemoclaw-policy-icon-btn:hover {
+  background: var(--bg-hover, #262a35);
+  color: var(--text, #e4e4e7);
+}
+
+.nemoclaw-policy-icon-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger, #ef4444);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.nemoclaw-policy-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Subsections inside network policy body */
+
+.nemoclaw-policy-subsection {
+  margin-bottom: 16px;
+}
+
+.nemoclaw-policy-subsection:last-child {
+  margin-bottom: 0;
+}
+
+.nemoclaw-policy-subsection__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.nemoclaw-policy-subsection__title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, #a1a1aa);
+}
+
+.nemoclaw-policy-info-tip {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  color: var(--muted, #71717a);
+  cursor: help;
+}
+
+.nemoclaw-policy-info-tip svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Endpoint rows */
+
+.nemoclaw-policy-ep-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nemoclaw-policy-ep-row {
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-sm, 6px);
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme="light"] .nemoclaw-policy-ep-row {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.nemoclaw-policy-ep-row__main {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+
+.nemoclaw-policy-ep-row__opts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.nemoclaw-policy-ep-row__del {
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
+/* YAML preview for L7 rules */
+
+.nemoclaw-policy-yaml-preview {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text, #e4e4e7);
+  overflow-x: auto;
+  margin: 4px 0 0;
+  border: 1px solid var(--border, #27272a);
+  white-space: pre;
+}
+
+:root[data-theme="light"] .nemoclaw-policy-yaml-preview {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.nemoclaw-policy-ep-rules {
+  margin-top: 6px;
+}
+
+/* Binary rows */
+
+.nemoclaw-policy-bin-list {
+  display: grid;
+  gap: 6px;
+}
+
+.nemoclaw-policy-bin-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nemoclaw-policy-bin-row__icon {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  color: var(--muted, #71717a);
+  flex-shrink: 0;
+}
+
+.nemoclaw-policy-bin-row__icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Shared inputs and selects */
+
+.nemoclaw-policy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nemoclaw-policy-field__label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-policy-input,
+.nemoclaw-policy-select {
+  padding: 7px 10px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-elevated, #1a1d25);
+  color: var(--text, #e4e4e7);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  min-width: 0;
+}
+
+:root[data-theme="light"] .nemoclaw-policy-input,
+:root[data-theme="light"] .nemoclaw-policy-select {
+  background: #fff;
+}
+
+.nemoclaw-policy-input:focus,
+.nemoclaw-policy-select:focus {
+  border-color: #76B900;
+  box-shadow: 0 0 0 2px rgba(118, 185, 0, 0.15);
+}
+
+.nemoclaw-policy-input::placeholder {
+  color: var(--muted, #71717a);
+  opacity: 0.5;
+}
+
+.nemoclaw-policy-input--host {
+  flex: 1;
+}
+
+.nemoclaw-policy-input--port {
+  width: 80px;
+}
+
+.nemoclaw-policy-bin-row .nemoclaw-policy-input {
+  flex: 1;
+}
+
+/* Add buttons */
+
+.nemoclaw-policy-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px dashed var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--muted, #71717a);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.nemoclaw-policy-add-btn:hover {
+  border-color: #76B900;
+  color: #76B900;
+  background: rgba(118, 185, 0, 0.04);
+}
+
+.nemoclaw-policy-add-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-add-small-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  margin-top: 8px;
+  border: 1px dashed var(--border, #27272a);
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--muted, #71717a);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.nemoclaw-policy-add-small-btn:hover {
+  border-color: #76B900;
+  color: #76B900;
+}
+
+.nemoclaw-policy-add-small-btn svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Save bar */
+
+.nemoclaw-policy-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-top: 24px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--card, #181b22);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme="light"] .nemoclaw-policy-savebar {
+  background: #fff;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.nemoclaw-policy-savebar__info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted, #71717a);
+  flex: 1;
+  min-width: 0;
+}
+
+.nemoclaw-policy-savebar__info code {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+.nemoclaw-policy-savebar__info-icon {
+  display: flex;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-policy-savebar__info-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-savebar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.nemoclaw-policy-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 22px;
+  border: 1px solid #76B900;
+  border-radius: var(--radius-md, 8px);
+  background: #76B900;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.nemoclaw-policy-save-btn:hover {
+  background: #6aa300;
+  border-color: #6aa300;
+  box-shadow: 0 4px 12px rgba(118, 185, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.nemoclaw-policy-save-btn:active {
+  background: #5a8500;
+  border-color: #5a8500;
+  transform: translateY(0);
+}
+
+.nemoclaw-policy-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.nemoclaw-policy-save-btn:focus-visible {
+  outline: 2px solid #76B900;
+  outline-offset: 2px;
+}
+
+/* Save feedback */
+
+.nemoclaw-policy-savebar__feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  min-height: 18px;
+  white-space: nowrap;
+}
+
+.nemoclaw-policy-savebar__feedback--saving {
+  color: #76B900;
+}
+
+.nemoclaw-policy-savebar__feedback--success {
+  color: #76B900;
+  animation: nemoclaw-fade-in 200ms ease;
+}
+
+.nemoclaw-policy-savebar__feedback--error {
+  color: var(--danger, #ef4444);
+  animation: nemoclaw-fade-in 200ms ease;
+}
+
+.nemoclaw-policy-savebar__feedback svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.nemoclaw-policy-savebar__spinner {
+  display: flex;
+  width: 14px;
+  height: 14px;
+}
+
+.nemoclaw-policy-savebar__spinner svg {
+  width: 14px;
+  height: 14px;
+  animation: nemoclaw-spin 1s linear infinite;
+}
+
+/* Responsive */
+
+@media (max-width: 640px) {
+  .nemoclaw-policy-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .nemoclaw-policy-oneliner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nemoclaw-policy-ep-row__main {
+    flex-wrap: wrap;
+  }
+
+  .nemoclaw-policy-ep-row__opts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .nemoclaw-policy-savebar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nemoclaw-policy-savebar__actions {
+    justify-content: flex-end;
+  }
+
+  .nemoclaw-policy-section__header {
+    flex-wrap: wrap;
+  }
+
+  .nemoclaw-policy-search {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+
+  .nemoclaw-policy-disclosure__header {
+    flex-wrap: wrap;
+  }
+}
+
+/* ===========================================
+   Policy Page — Status Bar
+   =========================================== */
+
+.nemoclaw-policy-statusbar {
+  margin-bottom: 24px;
+}
+
+.nemoclaw-policy-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.nemoclaw-policy-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 12px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+  font: inherit;
+  color: inherit;
+}
+
+.nemoclaw-policy-stat:hover {
+  border-color: rgba(118, 185, 0, 0.3);
+  background: rgba(118, 185, 0, 0.04);
+}
+
+:root[data-theme="light"] .nemoclaw-policy-stat {
+  background: #fff;
+}
+
+.nemoclaw-policy-stat__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-strong, #fafafa);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.nemoclaw-policy-stat__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-policy-oneliner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted, #71717a);
+}
+
+/* ===========================================
+   Policy Page — Immutable Disclosure
+   =========================================== */
+
+.nemoclaw-policy-disclosure {
+  margin-bottom: 24px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  overflow: hidden;
+  transition: border-color 150ms ease;
+}
+
+:root[data-theme="light"] .nemoclaw-policy-disclosure {
+  background: #fff;
+}
+
+.nemoclaw-policy-disclosure--expanded {
+  border-color: rgba(161, 161, 170, 0.35);
+}
+
+.nemoclaw-policy-disclosure__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  transition: background 120ms ease;
+}
+
+.nemoclaw-policy-disclosure__header:hover {
+  background: rgba(161, 161, 170, 0.04);
+}
+
+.nemoclaw-policy-disclosure__chevron {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  color: var(--muted, #71717a);
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+}
+
+.nemoclaw-policy-disclosure__chevron svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-disclosure--expanded .nemoclaw-policy-disclosure__chevron {
+  transform: rotate(90deg);
+}
+
+.nemoclaw-policy-disclosure__icon {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  color: var(--muted, #71717a);
+  flex-shrink: 0;
+}
+
+.nemoclaw-policy-disclosure__icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-disclosure__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong, #fafafa);
+  flex: 1;
+}
+
+.nemoclaw-policy-disclosure__summary {
+  padding: 0 16px 14px 60px;
+  font-size: 12px;
+  color: var(--muted, #71717a);
+  line-height: 1.6;
+}
+
+.nemoclaw-policy-disclosure__summary code {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(161, 161, 170, 0.08);
+  color: var(--text, #e4e4e7);
+}
+
+.nemoclaw-policy-disclosure__body {
+  border-top: 1px solid var(--border, #27272a);
+  padding: 16px;
+}
+
+.nemoclaw-policy-disclosure__note {
+  font-size: 12px;
+  color: var(--muted, #71717a);
+  margin: 0 0 14px;
+}
+
+.nemoclaw-policy-disclosure__note code {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+/* ===========================================
+   Policy Page — Internal Tab Strip
+   =========================================== */
+
+.nemoclaw-policy-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border, #27272a);
+  margin-bottom: 14px;
+}
+
+.nemoclaw-policy-tab {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #71717a);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+  font-family: inherit;
+}
+
+.nemoclaw-policy-tab:hover {
+  color: var(--text, #e4e4e7);
+}
+
+.nemoclaw-policy-tab--active {
+  color: #76B900;
+  border-bottom-color: #76B900;
+}
+
+.nemoclaw-policy-tab-panel {
+  min-height: 40px;
+}
+
+/* ===========================================
+   Policy Page — Network Card Host Preview
+   =========================================== */
+
+.nemoclaw-policy-netcard__preview {
+  padding: 0 14px 10px 38px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.nemoclaw-policy-netcard--expanded .nemoclaw-policy-netcard__preview {
+  display: none;
+}
+
+.nemoclaw-policy-host-chip {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(118, 185, 0, 0.06);
+  border: 1px solid rgba(118, 185, 0, 0.15);
+  color: var(--text, #e4e4e7);
+}
+
+.nemoclaw-policy-host-chip--more {
+  color: var(--muted, #71717a);
+  background: transparent;
+  border-color: transparent;
+  font-family: inherit;
+  font-style: italic;
+}
+
+/* ===========================================
+   Policy Page — Inline New-Policy Form
+   =========================================== */
+
+.nemoclaw-policy-newcard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(118, 185, 0, 0.3);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(118, 185, 0, 0.03);
+  margin-bottom: 8px;
+  animation: nemoclaw-fade-in 150ms ease;
+}
+
+.nemoclaw-policy-newcard .nemoclaw-policy-input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.nemoclaw-policy-newcard__hint {
+  width: 100%;
+  font-size: 11px;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-policy-newcard__error {
+  width: 100%;
+  font-size: 11px;
+  color: var(--danger, #ef4444);
+  min-height: 0;
+}
+
+.nemoclaw-policy-newcard__error:empty {
+  display: none;
+}
+
+.nemoclaw-policy-input--error {
+  border-color: var(--danger, #ef4444) !important;
+}
+
+/* ===========================================
+   Policy Page — Delete Confirmation
+   =========================================== */
+
+.nemoclaw-policy-confirm-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.nemoclaw-policy-confirm-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms ease;
+}
+
+.nemoclaw-policy-confirm-btn--delete {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger, #ef4444);
+}
+
+.nemoclaw-policy-confirm-btn--delete:hover {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.nemoclaw-policy-confirm-btn--create {
+  background: rgba(118, 185, 0, 0.12);
+  color: #76B900;
+}
+
+.nemoclaw-policy-confirm-btn--create:hover {
+  background: rgba(118, 185, 0, 0.22);
+}
+
+.nemoclaw-policy-confirm-btn--cancel {
+  background: transparent;
+  color: var(--muted, #71717a);
+}
+
+.nemoclaw-policy-confirm-btn--cancel:hover {
+  color: var(--text, #e4e4e7);
+}
+
+.nemoclaw-policy-netcard--confirming {
+  border-left: 3px solid var(--danger, #ef4444);
+}
+
+/* ===========================================
+   Policy Page — L7 Rule Editor Rows
+   =========================================== */
+
+.nemoclaw-policy-rule-list {
+  display: grid;
+  gap: 6px;
+}
+
+.nemoclaw-policy-rule-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.nemoclaw-policy-rule-method {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.nemoclaw-policy-rule-path {
+  flex: 1;
+}
+
+/* ===========================================
+   Policy Page — IP Row
+   =========================================== */
+
+.nemoclaw-policy-ip-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.nemoclaw-policy-ip-row .nemoclaw-policy-input {
+  flex: 1;
+}
+
+/* ===========================================
+   Policy Page — Search Filter
+   =========================================== */
+
+.nemoclaw-policy-search {
+  padding: 6px 10px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-elevated, #1a1d25);
+  color: var(--text, #e4e4e7);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  width: 180px;
+  margin-left: auto;
+  transition: border-color 150ms ease, width 200ms ease;
+}
+
+.nemoclaw-policy-search:focus {
+  border-color: #76B900;
+  width: 240px;
+}
+
+.nemoclaw-policy-search::placeholder {
+  color: var(--muted, #71717a);
+  opacity: 0.6;
+}
+
+:root[data-theme="light"] .nemoclaw-policy-search {
+  background: #fff;
+}
+
+/* ===========================================
+   Policy Page — Section Count Badge
+   =========================================== */
+
+.nemoclaw-policy-section__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(118, 185, 0, 0.12);
+  color: #76B900;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ===========================================
+   Policy Page — Template Dropdown
+   =========================================== */
+
+.nemoclaw-policy-add-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.nemoclaw-policy-add-btn__chevron {
+  display: flex;
+  width: 12px;
+  height: 12px;
+  margin-left: 2px;
+}
+
+.nemoclaw-policy-add-btn__chevron svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nemoclaw-policy-templates {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card, #181b22);
+  padding: 5px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: nemoclaw-scale-in 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 50;
+}
+
+:root[data-theme="light"] .nemoclaw-policy-templates {
+  background: var(--bg, #fff);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.nemoclaw-policy-template-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text, #e4e4e7);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.nemoclaw-policy-template-option:hover {
+  background: var(--bg-hover, #262a35);
+}
+
+.nemoclaw-policy-template-option--custom {
+  border-top: 1px solid var(--border, #27272a);
+  margin-top: 4px;
+  padding-top: 12px;
+  color: var(--muted, #71717a);
+  font-style: italic;
+}
+
+/* ===========================================
+   Policy Page — Conditional Save Bar
+   =========================================== */
+
+.nemoclaw-policy-savebar--hidden {
+  display: none !important;
+}
+
+.nemoclaw-policy-savebar--visible {
+  display: flex !important;
+  animation: nemoclaw-savebar-slide-up 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes nemoclaw-savebar-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nemoclaw-policy-savebar__summary {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #e4e4e7);
+}
+
+.nemoclaw-policy-discard-btn {
+  padding: 9px 18px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text, #e4e4e7);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.nemoclaw-policy-discard-btn:hover {
+  border-color: var(--danger, #ef4444);
+  color: var(--danger, #ef4444);
+  background: rgba(239, 68, 68, 0.06);
+}
