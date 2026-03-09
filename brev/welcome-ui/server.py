@@ -5,6 +5,7 @@
 
 """NemoClaw Welcome UI — HTTP server with sandbox lifecycle APIs."""
 
+import hashlib
 import http.client
 import http.server
 import json
@@ -42,6 +43,66 @@ _sandbox_state = {
     "url": None,
     "error": None,
 }
+
+_inject_key_lock = threading.Lock()
+_inject_key_state = {
+    "status": "idle",  # idle | injecting | done | error
+    "error": None,
+    "key_hash": None,
+}
+
+
+def _hash_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def _inject_log(msg: str) -> None:
+    ts = time.strftime("%H:%M:%S")
+    sys.stderr.write(f"[inject-key {ts}] {msg}\n")
+    sys.stderr.flush()
+
+
+def _run_inject_key(key: str, key_hash: str) -> None:
+    """Background thread: update the NemoClaw provider credential."""
+    _inject_log(f"step 1/3: received key (hash={key_hash[:12]}…)")
+    cmd = [
+        "nemoclaw", "provider", "update", "nvidia-inference",
+        "--type", "openai",
+        "--credential", f"OPENAI_API_KEY={key}",
+        "--config", "OPENAI_BASE_URL=https://inference-api.nvidia.com/v1",
+    ]
+    _inject_log(f"step 2/3: running nemoclaw provider update nvidia-inference …")
+    try:
+        t0 = time.time()
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=120,
+        )
+        elapsed = time.time() - t0
+        _inject_log(f"         CLI exited {result.returncode} in {elapsed:.1f}s")
+        if result.stdout.strip():
+            _inject_log(f"         stdout: {result.stdout.strip()}")
+        if result.stderr.strip():
+            _inject_log(f"         stderr: {result.stderr.strip()}")
+
+        if result.returncode != 0:
+            err = (result.stderr or result.stdout or "unknown error").strip()
+            _inject_log(f"step 3/3: FAILED — {err}")
+            with _inject_key_lock:
+                _inject_key_state["status"] = "error"
+                _inject_key_state["error"] = err
+            return
+
+        _inject_log(f"step 3/3: SUCCESS — provider nvidia-inference updated")
+        with _inject_key_lock:
+            _inject_key_state["status"] = "done"
+            _inject_key_state["error"] = None
+            _inject_key_state["key_hash"] = key_hash
+
+    except Exception as exc:
+        _inject_log(f"step 3/3: EXCEPTION — {exc}")
+        with _inject_key_lock:
+            _inject_key_state["status"] = "error"
+            _inject_key_state["error"] = str(exc)
 
 
 def _sandbox_ready() -> bool:
@@ -391,6 +452,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._handle_install_openclaw()
         if path == "/api/policy-sync" and self.command == "POST":
             return self._handle_policy_sync()
+        if path == "/api/inject-key" and self.command == "POST":
+            return self._handle_inject_key()
 
         if _sandbox_ready():
             return self._proxy_to_sandbox()
@@ -551,6 +614,50 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         _log(f"── responding {status}: {json.dumps(result)}")
         return self._json_response(status, result)
 
+    # -- POST /api/inject-key -------------------------------------------
+
+    def _handle_inject_key(self):
+        """Asynchronously update the NemoClaw provider credential.
+
+        Returns immediately (202) and runs the slow CLI command in a
+        background thread.  The frontend polls /api/sandbox-status to
+        learn when injection is complete.
+        """
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length == 0:
+            return self._json_response(400, {"ok": False, "error": "empty body"})
+        raw = self.rfile.read(content_length).decode("utf-8", errors="replace")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return self._json_response(400, {"ok": False, "error": "invalid JSON"})
+
+        key = data.get("key", "").strip()
+        if not key:
+            return self._json_response(400, {"ok": False, "error": "missing key"})
+
+        key_hash = _hash_key(key)
+
+        with _inject_key_lock:
+            if (_inject_key_state["status"] == "done"
+                    and _inject_key_state["key_hash"] == key_hash):
+                return self._json_response(200, {"ok": True, "already": True})
+
+            if (_inject_key_state["status"] == "injecting"
+                    and _inject_key_state["key_hash"] == key_hash):
+                return self._json_response(202, {"ok": True, "started": True})
+
+            _inject_key_state["status"] = "injecting"
+            _inject_key_state["error"] = None
+            _inject_key_state["key_hash"] = key_hash
+
+        thread = threading.Thread(
+            target=_run_inject_key, args=(key, key_hash), daemon=True,
+        )
+        thread.start()
+
+        return self._json_response(202, {"ok": True, "started": True})
+
     # -- GET /api/sandbox-status ----------------------------------------
 
     def _handle_sandbox_status(self):
@@ -568,10 +675,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             state["status"] = "running"
             state["url"] = url
 
+        with _inject_key_lock:
+            key_injected = _inject_key_state["status"] == "done"
+            key_inject_error = _inject_key_state.get("error")
+
         return self._json_response(200, {
             "status": state["status"],
             "url": state.get("url"),
             "error": state.get("error"),
+            "key_injected": key_injected,
+            "key_inject_error": key_inject_error,
         })
 
     # -- GET /api/connection-details ------------------------------------

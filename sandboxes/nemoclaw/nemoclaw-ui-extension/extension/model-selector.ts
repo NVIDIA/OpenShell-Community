@@ -29,7 +29,7 @@ let applyInFlight = false;
 // Build the config.patch payload for a given model entry
 // ---------------------------------------------------------------------------
 
-function buildModelPatch(entry: ModelEntry): Record<string, unknown> | null {
+export function buildModelPatch(entry: ModelEntry): Record<string, unknown> | null {
   const apiKey = resolveApiKey(entry.keyType);
 
   if (!isKeyConfigured(apiKey)) {

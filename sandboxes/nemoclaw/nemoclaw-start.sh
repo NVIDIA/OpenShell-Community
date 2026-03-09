@@ -69,6 +69,7 @@ fi
 # Onboard and start the gateway
 # --------------------------------------------------------------------------
 export NVIDIA_API_KEY="${NVIDIA_INFERENCE_API_KEY:- }"
+_ONBOARD_KEY="${NVIDIA_INFERENCE_API_KEY:-not-used}"
 openclaw onboard \
   --non-interactive \
   --accept-risk \
@@ -79,7 +80,7 @@ openclaw onboard \
   --auth-choice custom-api-key \
   --custom-base-url "https://inference.local/v1" \
   --custom-model-id "aws/anthropic/bedrock-claude-opus-4-6" \
-  --custom-api-key "not-used" \
+  --custom-api-key "$_ONBOARD_KEY" \
   --secret-input-mode plaintext \
   --custom-compatibility openai \
   --gateway-port 18788 \

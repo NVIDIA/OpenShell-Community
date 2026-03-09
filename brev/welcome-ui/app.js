@@ -116,6 +116,10 @@
   let sandboxUrl = null;
   let installTriggered = false;
   let pollTimer = null;
+  let keyInjected = false;
+  let injectInFlight = false;
+  let injectTimer = null;
+  let lastSubmittedKey = "";
 
   function stopPolling() {
     if (pollTimer) {
@@ -124,12 +128,38 @@
     }
   }
 
+  async function submitKeyForInjection(key) {
+    if (key === lastSubmittedKey) return;
+    lastSubmittedKey = key;
+    keyInjected = false;
+    injectInFlight = true;
+    updateButtonState();
+    try {
+      await fetch("/api/inject-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+    } catch {}
+    injectInFlight = false;
+    if (!pollTimer && sandboxReady) startPolling();
+  }
+
+  function onApiKeyInput() {
+    updateButtonState();
+    const key = apiKeyInput.value.trim();
+    if (!isApiKeyValid()) return;
+    if (injectTimer) clearTimeout(injectTimer);
+    injectTimer = setTimeout(() => submitKeyForInjection(key), 300);
+  }
+
   /**
-   * Four-state CTA button:
-   *  1. API empty  + tasks running   -> "Waiting for API key…"  (disabled)
-   *  2. API valid  + tasks running   -> "Provisioning Sandbox…" (disabled, spinner)
-   *  3. API empty  + tasks complete  -> "Waiting for API key…"  (disabled)
-   *  4. API valid  + tasks complete  -> "Open NemoClaw"          (enabled)
+   * Five-state CTA button:
+   *  1. API empty  + tasks running        -> "Waiting for API key…"      (disabled)
+   *  2. API valid  + tasks running        -> "Provisioning Sandbox…"     (disabled, spinner)
+   *  3. API empty  + tasks complete       -> "Waiting for API key…"      (disabled)
+   *  4. API valid  + sandbox ready + !key -> "Configuring API key…"      (disabled, spinner)
+   *  5. API valid  + sandbox ready + key  -> "Open NemoClaw"             (enabled)
    */
   function updateButtonState() {
     const keyValid = isApiKeyValid();
@@ -148,7 +178,7 @@
     }
 
     // Console "ready" line
-    if (sandboxReady && keyValid) {
+    if (sandboxReady && keyValid && keyInjected) {
       logReady.hidden = false;
       logReady.querySelector(".console__icon").textContent = CHECK_CHAR;
       logReady.querySelector(".console__icon").className = "console__icon console__icon--done";
@@ -156,12 +186,18 @@
       logReady.hidden = true;
     }
 
-    if (sandboxReady && keyValid) {
+    if (sandboxReady && keyValid && keyInjected) {
       btnLaunch.disabled = false;
       btnLaunch.classList.add("btn--ready");
       btnSpinner.hidden = true;
       btnSpinner.style.display = "none";
       btnLaunchLabel.textContent = "Open NemoClaw";
+    } else if (sandboxReady && keyValid && !keyInjected) {
+      btnLaunch.disabled = true;
+      btnLaunch.classList.remove("btn--ready");
+      btnSpinner.hidden = false;
+      btnSpinner.style.display = "";
+      btnLaunchLabel.textContent = "Configuring API key\u2026";
     } else if (!sandboxReady && keyValid) {
       btnLaunch.disabled = true;
       btnLaunch.classList.remove("btn--ready");
@@ -229,19 +265,28 @@
         const res = await fetch("/api/sandbox-status");
         const data = await res.json();
 
+        if (!injectInFlight) {
+          keyInjected = !!data.key_injected;
+        }
+
         if (data.status === "running") {
-          stopPolling();
           sandboxReady = true;
           sandboxUrl = data.url || null;
 
           setLogIcon(logGatewayIcon, "done");
           logGateway.querySelector(".console__text").textContent =
             "OpenClaw agent gateway online.";
+
+          if (keyInjected) {
+            stopPolling();
+          }
           updateButtonState();
         } else if (data.status === "error") {
           stopPolling();
           installTriggered = false;
           showError(data.error || "Sandbox creation failed");
+        } else {
+          updateButtonState();
         }
       } catch {
         // transient fetch error, keep polling
@@ -250,7 +295,7 @@
   }
 
   function openOpenClaw() {
-    if (!sandboxReady || !isApiKeyValid() || !sandboxUrl) return;
+    if (!sandboxReady || !isApiKeyValid() || !keyInjected || !sandboxUrl) return;
 
     const apiKey = apiKeyInput.value.trim();
     const url = new URL(sandboxUrl);
@@ -262,6 +307,8 @@
     sandboxReady = false;
     sandboxUrl = null;
     installTriggered = false;
+    keyInjected = false;
+    lastSubmittedKey = "";
     stopPolling();
 
     setLogIcon(logSandboxIcon, null);
@@ -277,7 +324,7 @@
     triggerInstall();
   }
 
-  apiKeyInput.addEventListener("input", updateButtonState);
+  apiKeyInput.addEventListener("input", onApiKeyInput);
   btnLaunch.addEventListener("click", openOpenClaw);
   btnRetry.addEventListener("click", resetInstall);
 
@@ -287,6 +334,10 @@
     try {
       const res = await fetch("/api/sandbox-status");
       const data = await res.json();
+
+      if (data.key_injected) {
+        keyInjected = true;
+      }
 
       if (data.status === "running" && data.url) {
         sandboxReady = true;
@@ -302,6 +353,9 @@
         updateButtonState();
 
         showOverlay(overlayInstall);
+        if (!keyInjected) {
+          startPolling();
+        }
       } else if (data.status === "creating") {
         installTriggered = true;
 

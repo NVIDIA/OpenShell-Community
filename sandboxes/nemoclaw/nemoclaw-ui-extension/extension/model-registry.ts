@@ -45,8 +45,13 @@ export function setIntegrateApiKey(key: string): void {
   else localStorage.removeItem(LS_INTEGRATE_KEY);
 }
 
+const PLACEHOLDER_KEYS = ["not-used", "unused", "placeholder", "none", "null", "undefined"];
+
 export function isKeyConfigured(key: string): boolean {
-  return !!key && !key.startsWith("__");
+  if (!key || !key.trim()) return false;
+  const lower = key.trim().toLowerCase();
+  if (lower.startsWith("__")) return false;
+  return !PLACEHOLDER_KEYS.includes(lower);
 }
 
 /**

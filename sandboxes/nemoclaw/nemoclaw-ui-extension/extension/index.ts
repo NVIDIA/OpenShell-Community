@@ -14,7 +14,7 @@ import "./styles.css";
 import { injectButton } from "./deploy-modal.ts";
 import { injectNavGroup, activateNemoPage, watchOpenClawNavClicks } from "./nav-group.ts";
 import { injectModelSelector, watchChatCompose } from "./model-selector.ts";
-import { ingestKeysFromUrl, DEFAULT_MODEL, resolveApiKey } from "./model-registry.ts";
+import { ingestKeysFromUrl, DEFAULT_MODEL, resolveApiKey, isKeyConfigured } from "./model-registry.ts";
 import { waitForClient, patchConfig, waitForReconnect } from "./gateway-bridge.ts";
 
 function inject(): boolean {
@@ -36,6 +36,22 @@ function watchGotoLinks() {
     const pageId = link.dataset.nemoclawGoto;
     if (pageId) activateNemoPage(pageId);
   });
+}
+
+/**
+ * Update the NemoClaw provider credential on the host so the sandbox
+ * proxy / inference router uses the real key for inference.local requests.
+ * Mirrors the policy-sync pattern in policy-page.ts.
+ */
+function injectKeyViaHost(key: string): void {
+  fetch("/api/inject-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  })
+    .then((r) => r.json())
+    .then((b) => console.log("[NeMoClaw] inject-key:", b))
+    .catch((e) => console.warn("[NeMoClaw] inject-key failed:", e));
 }
 
 /**
@@ -103,8 +119,10 @@ function bootstrap() {
   watchChatCompose();
   watchGotoLinks();
 
-  if (keysIngested) {
+  const defaultKey = resolveApiKey(DEFAULT_MODEL.keyType);
+  if (keysIngested || isKeyConfigured(defaultKey)) {
     applyIngestedKeys();
+    injectKeyViaHost(defaultKey);
   }
 
   if (inject()) {
