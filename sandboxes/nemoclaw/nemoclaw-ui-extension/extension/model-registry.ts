@@ -118,8 +118,8 @@ export interface ModelEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Curated models — hardcoded presets backed by the nvidia-inference provider.
-// All route through inference.local; the NemoClaw proxy injects credentials.
+// Curated models — hardcoded presets routed through inference.local.
+// The NemoClaw proxy injects credentials based on the providerName.
 // ---------------------------------------------------------------------------
 
 export interface CuratedModel {
@@ -131,34 +131,40 @@ export interface CuratedModel {
 
 export const CURATED_MODELS: readonly CuratedModel[] = [
   {
+    id: "curated-kimi-k25",
+    name: "Kimi K2.5",
+    modelId: "moonshotai/kimi-k2.5",
+    providerName: "nvidia-endpoints",
+  },
+  {
     id: "curated-claude-opus",
     name: "Claude Opus 4.6",
     modelId: "aws/anthropic/bedrock-claude-opus-4-6",
     providerName: "nvidia-inference",
   },
   {
-    id: "curated-gpt-oss",
-    name: "GPT-OSS 20B",
-    modelId: "nvidia/openai/gpt-oss-20b",
-    providerName: "nvidia-inference",
+    id: "curated-minimax-m25",
+    name: "MiniMax M2.5",
+    modelId: "minimaxai/minimax-m2.5",
+    providerName: "nvidia-endpoints",
   },
   {
-    id: "curated-nemotron-super",
-    name: "Nemotron 3 Super",
-    modelId: "nvidia/nvidia/nemotron-3-super-preview",
-    providerName: "nvidia-inference",
+    id: "curated-glm5",
+    name: "GLM 5",
+    modelId: "z-ai/glm5",
+    providerName: "nvidia-endpoints",
   },
   {
-    id: "curated-qwen3",
-    name: "Qwen3 Next 80B",
-    modelId: "nvidia/qwen/qwen3-next-80b-a3b-instruct",
-    providerName: "nvidia-inference",
+    id: "curated-qwen35",
+    name: "Qwen 3.5 397B",
+    modelId: "qwen/qwen3.5-397b-a17b",
+    providerName: "nvidia-endpoints",
   },
   {
-    id: "curated-llama-70b",
-    name: "Llama 3.3 70B",
-    modelId: "nvidia/meta/llama-3.3-70b-instruct",
-    providerName: "nvidia-inference",
+    id: "curated-gpt-oss-120b",
+    name: "GPT-OSS 120B",
+    modelId: "openai/gpt-oss-120b",
+    providerName: "nvidia-endpoints",
   },
 ];
 
@@ -167,7 +173,7 @@ export function curatedToModelEntry(c: CuratedModel): ModelEntry {
   return {
     id: c.id,
     name: c.name,
-    isDefault: c.id === "curated-claude-opus",
+    isDefault: c.id === "curated-kimi-k25",
     providerKey: key,
     modelRef: `${key}/${c.modelId}`,
     keyType: "inference",
@@ -198,27 +204,27 @@ export function getCuratedByModelId(modelId: string): CuratedModel | undefined {
 // Legacy MODEL_REGISTRY — kept as the default model reference for bootstrap
 // ---------------------------------------------------------------------------
 
-const DEFAULT_PROVIDER_KEY = "custom-inference-api-nvidia-com";
+const DEFAULT_PROVIDER_KEY = "curated-nvidia-endpoints";
 
 export const MODEL_REGISTRY: readonly ModelEntry[] = [
   {
-    id: "nvidia-claude-opus-4-6",
-    name: "Claude Opus 4.6",
+    id: "curated-kimi-k25",
+    name: "Kimi K2.5",
     isDefault: true,
     providerKey: DEFAULT_PROVIDER_KEY,
-    modelRef: `${DEFAULT_PROVIDER_KEY}/aws/anthropic/bedrock-claude-opus-4-6`,
+    modelRef: `${DEFAULT_PROVIDER_KEY}/moonshotai/kimi-k2.5`,
     keyType: "inference",
     providerConfig: {
       baseUrl: "https://inference.local/v1",
       api: "openai-completions",
       models: [
         {
-          id: "aws/anthropic/bedrock-claude-opus-4-6",
-          name: "Claude Opus 4.6",
+          id: "moonshotai/kimi-k2.5",
+          name: "Kimi K2.5",
           reasoning: false,
           input: ["text"],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: 200_000,
+          contextWindow: 128_000,
           maxTokens: 8192,
         },
       ],
@@ -288,6 +294,46 @@ export function buildDynamicEntry(
         {
           id: modelId,
           name: `${modelId} (${providerType})`,
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 128_000,
+          maxTokens: 8192,
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * Build a ModelEntry for a user-defined Quick Select shortcut.
+ * Uses a unique ID derived from providerName + modelId to avoid
+ * collisions when multiple shortcuts share the same provider.
+ */
+export function buildQuickSelectEntry(
+  providerName: string,
+  modelId: string,
+  displayName: string,
+): ModelEntry {
+  const curated = getCuratedByModelId(modelId);
+  if (curated) return curatedToModelEntry(curated);
+
+  const key = `qs-${providerName}-${modelId.replace(/\//g, "-")}`;
+  return {
+    id: key,
+    name: displayName,
+    isDefault: false,
+    providerKey: `qs-${providerName}`,
+    modelRef: `qs-${providerName}/${modelId}`,
+    keyType: "inference",
+    isDynamic: true,
+    providerConfig: {
+      baseUrl: "https://inference.local/v1",
+      api: "openai-completions",
+      models: [
+        {
+          id: modelId,
+          name: displayName,
           reasoning: false,
           input: ["text"],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

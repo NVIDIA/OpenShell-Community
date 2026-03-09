@@ -19,6 +19,7 @@ import {
   resolveApiKey,
   isKeyConfigured,
   buildDynamicEntry,
+  buildQuickSelectEntry,
   setDynamicModels,
   getDynamicModels,
   CURATED_MODELS,
@@ -69,6 +70,9 @@ export function buildModelPatch(entry: ModelEntry): Record<string, unknown> | nu
     agents: {
       defaults: {
         model: { primary: entry.modelRef },
+        models: {
+          [entry.modelRef]: { streaming: true },
+        },
       },
     },
   };
@@ -118,6 +122,20 @@ async function fetchDynamic(): Promise<void> {
       const provType = prov?.type || "generic";
       entries.push(buildDynamicEntry(route.providerName, route.modelId, provType));
     }
+
+    const curatedIds = new Set(CURATED_MODELS.map((c) => c.modelId));
+    const existingModelIds = new Set(entries.map((e) => e.providerConfig.models[0]?.id));
+    try {
+      const raw = localStorage.getItem("nemoclaw:custom-quick-selects");
+      if (raw) {
+        const customQS: { modelId: string; name: string; providerName: string }[] = JSON.parse(raw);
+        for (const qs of customQS) {
+          if (curatedIds.has(qs.modelId) || existingModelIds.has(qs.modelId)) continue;
+          entries.push(buildQuickSelectEntry(qs.providerName, qs.modelId, qs.name));
+          existingModelIds.add(qs.modelId);
+        }
+      }
+    } catch { /* ignore malformed localStorage data */ }
 
     setDynamicModels(entries);
   } catch {

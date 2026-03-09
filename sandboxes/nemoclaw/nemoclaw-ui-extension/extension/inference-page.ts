@@ -379,6 +379,7 @@ function buildQuickChip(modelId: string, name: string, providerName: string, cur
       const items = getCustomQuickSelects().filter((i) => i.modelId !== modelId);
       saveCustomQuickSelects(items);
       chip.remove();
+      refreshModelSelector().catch(() => {});
     });
     chip.appendChild(removeBtn);
   }
@@ -439,6 +440,7 @@ function showAddQuickSelectForm(section: HTMLElement): void {
     saveCustomQuickSelects(items);
     form.remove();
     rerenderQuickPicker(section);
+    refreshModelSelector().catch(() => {});
   });
 
   btns.appendChild(addConfirm);

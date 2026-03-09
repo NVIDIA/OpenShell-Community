@@ -454,7 +454,7 @@ function buildNetworkPoliciesSection(): HTMLElement {
   headerRow.className = "nemoclaw-policy-section__header";
   headerRow.innerHTML = `
     <span class="nemoclaw-policy-section__icon">${ICON_GLOBE}</span>
-    <h3 class="nemoclaw-policy-section__title">Network Policies</h3>
+    <h3 class="nemoclaw-policy-section__title">Allowed Network Policies</h3>
     <span class="nemoclaw-policy-section__count">${policyCount}</span>`;
 
   const searchInput = document.createElement("input");

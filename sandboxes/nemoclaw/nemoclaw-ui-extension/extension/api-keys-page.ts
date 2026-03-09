@@ -6,7 +6,7 @@
  * model-registry.ts getter functions.
  */
 
-import { ICON_KEY, ICON_EYE, ICON_EYE_OFF, ICON_CHECK } from "./icons.ts";
+import { ICON_KEY, ICON_EYE, ICON_EYE_OFF, ICON_CHECK, ICON_LOADER, ICON_CLOSE } from "./icons.ts";
 import {
   getInferenceApiKey,
   getIntegrateApiKey,
@@ -24,6 +24,7 @@ interface KeyFieldDef {
   label: string;
   description: string;
   placeholder: string;
+  serverCredentialKey: string;
   get: () => string;
   set: (v: string) => void;
 }
@@ -34,6 +35,7 @@ const KEY_FIELDS: KeyFieldDef[] = [
     label: "Inference API Key",
     description: "For inference-api.nvidia.com — powers NVIDIA Claude Opus 4.6",
     placeholder: "nvapi-...",
+    serverCredentialKey: "OPENAI_API_KEY",
     get: getInferenceApiKey,
     set: setInferenceApiKey,
   },
@@ -42,10 +44,66 @@ const KEY_FIELDS: KeyFieldDef[] = [
     label: "Integrate API Key",
     description: "For integrate.api.nvidia.com — powers Kimi K2.5, Nemotron Ultra, DeepSeek V3.2",
     placeholder: "nvapi-...",
+    serverCredentialKey: "NVIDIA_API_KEY",
     get: getIntegrateApiKey,
     set: setIntegrateApiKey,
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Sync localStorage keys to server-side provider credentials
+// ---------------------------------------------------------------------------
+
+interface ProviderSummary {
+  name: string;
+  type: string;
+  credentialKeys: string[];
+}
+
+/**
+ * Push localStorage API keys to every server-side provider whose credential
+ * key matches.  This bridges the gap between the browser-only API Keys tab
+ * and the NemoClaw proxy which reads credentials from the server-side store.
+ */
+export async function syncKeysToProviders(): Promise<void> {
+  const res = await fetch("/api/providers");
+  if (!res.ok) throw new Error(`Failed to fetch providers: ${res.status}`);
+  const body = await res.json();
+  if (!body.ok) throw new Error(body.error || "Failed to fetch providers");
+
+  const providers: ProviderSummary[] = body.providers || [];
+  const errors: string[] = [];
+
+  for (const provider of providers) {
+    for (const field of KEY_FIELDS) {
+      const key = field.get();
+      if (!isKeyConfigured(key)) continue;
+      if (!provider.credentialKeys?.includes(field.serverCredentialKey)) continue;
+
+      try {
+        const updateRes = await fetch(`/api/providers/${encodeURIComponent(provider.name)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: provider.type,
+            credentials: { [field.serverCredentialKey]: key },
+            config: {},
+          }),
+        });
+        const updateBody = await updateRes.json();
+        if (!updateBody.ok) {
+          errors.push(`${provider.name}: ${updateBody.error || "update failed"}`);
+        }
+      } catch (err) {
+        errors.push(`${provider.name}: ${err}`);
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(errors.join("; "));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Render the API Keys page into a container element
@@ -71,7 +129,7 @@ export function renderApiKeysPage(container: HTMLElement): void {
       Enter your NVIDIA API keys to enable model switching and DGX deployment.
       Keys are stored locally in your browser and never sent to third parties.
     </p>
-    <a class="nemoclaw-key-intro__link" href="https://build.nvidia.com/models" target="_blank" rel="noopener noreferrer">
+    <a class="nemoclaw-key-intro__link" href="https://build.nvidia.com/settings/api-keys" target="_blank" rel="noopener noreferrer">
       Get your keys at build.nvidia.com &rarr;
     </a>`;
   page.appendChild(intro);
@@ -100,7 +158,7 @@ export function renderApiKeysPage(container: HTMLElement): void {
   form.appendChild(actions);
   page.appendChild(form);
 
-  saveBtn.addEventListener("click", () => {
+  saveBtn.addEventListener("click", async () => {
     for (const field of KEY_FIELDS) {
       const input = form.querySelector<HTMLInputElement>(`[data-key-id="${field.id}"]`);
       if (input) field.set(input.value.trim());
@@ -108,12 +166,25 @@ export function renderApiKeysPage(container: HTMLElement): void {
 
     updateStatusDots();
 
-    feedback.className = "nemoclaw-key-feedback nemoclaw-key-feedback--success";
-    feedback.innerHTML = `${ICON_CHECK}<span>Keys saved</span>`;
-    setTimeout(() => {
-      feedback.className = "nemoclaw-key-feedback";
-      feedback.textContent = "";
-    }, 3000);
+    feedback.className = "nemoclaw-key-feedback nemoclaw-key-feedback--saving";
+    feedback.innerHTML = `${ICON_LOADER}<span>Syncing keys to providers\u2026</span>`;
+    saveBtn.disabled = true;
+
+    try {
+      await syncKeysToProviders();
+      feedback.className = "nemoclaw-key-feedback nemoclaw-key-feedback--success";
+      feedback.innerHTML = `${ICON_CHECK}<span>Keys saved &amp; synced to providers</span>`;
+    } catch (err) {
+      console.warn("[NeMoClaw] Provider key sync failed:", err);
+      feedback.className = "nemoclaw-key-feedback nemoclaw-key-feedback--error";
+      feedback.innerHTML = `${ICON_CLOSE}<span>Keys saved locally but sync failed</span>`;
+    } finally {
+      saveBtn.disabled = false;
+      setTimeout(() => {
+        feedback.className = "nemoclaw-key-feedback";
+        feedback.textContent = "";
+      }, 4000);
+    }
   });
 }
 

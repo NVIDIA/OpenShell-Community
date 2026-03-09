@@ -5,7 +5,7 @@
  *   1. A green "Deploy DGX Spark/Station" CTA button in the topbar
  *   2. A "NeMoClaw" collapsible nav group with Policy, Inference Routes,
  *      and API Keys pages
- *   3. A model selector wired to NVIDIA endpoints via config.patch
+ *   3. A model selector wired to NVIDIA endpoints
  *
  * Operates purely as an overlay — no original OpenClaw source files are modified.
  */
@@ -15,7 +15,8 @@ import { injectButton } from "./deploy-modal.ts";
 import { injectNavGroup, activateNemoPage, watchOpenClawNavClicks } from "./nav-group.ts";
 import { injectModelSelector, watchChatCompose } from "./model-selector.ts";
 import { ingestKeysFromUrl, DEFAULT_MODEL, resolveApiKey, isKeyConfigured } from "./model-registry.ts";
-import { waitForClient, patchConfig, waitForReconnect } from "./gateway-bridge.ts";
+import { waitForClient, waitForReconnect, patchConfig } from "./gateway-bridge.ts";
+import { syncKeysToProviders } from "./api-keys-page.ts";
 
 function inject(): boolean {
   const hasButton = injectButton();
@@ -35,50 +36,6 @@ function watchGotoLinks() {
     e.preventDefault();
     const pageId = link.dataset.nemoclawGoto;
     if (pageId) activateNemoPage(pageId);
-  });
-}
-
-/**
- * Update the NemoClaw provider credential on the host so the sandbox
- * proxy / inference router uses the real key for inference.local requests.
- * Mirrors the policy-sync pattern in policy-page.ts.
- */
-function injectKeyViaHost(key: string): void {
-  fetch("/api/inject-key", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key }),
-  })
-    .then((r) => r.json())
-    .then((b) => console.log("[NeMoClaw] inject-key:", b))
-    .catch((e) => console.warn("[NeMoClaw] inject-key failed:", e));
-}
-
-/**
- * When API keys arrive via URL parameters (from the welcome UI), apply
- * the default model's provider config so the gateway has a valid key
- * immediately rather than the placeholder set during onboarding.
- */
-function applyIngestedKeys(): void {
-  waitForClient().then(async () => {
-    const apiKey = resolveApiKey(DEFAULT_MODEL.keyType);
-    await patchConfig({
-      models: {
-        providers: {
-          [DEFAULT_MODEL.providerKey]: {
-            baseUrl: DEFAULT_MODEL.providerConfig.baseUrl,
-            api: DEFAULT_MODEL.providerConfig.api,
-            models: DEFAULT_MODEL.providerConfig.models,
-            apiKey,
-          },
-        },
-      },
-      agents: {
-        defaults: { model: { primary: DEFAULT_MODEL.modelRef } },
-      },
-    });
-  }).catch((err) => {
-    console.error("[NeMoClaw] Failed to apply ingested API key:", err);
   });
 }
 
@@ -108,10 +65,51 @@ function revealApp(): void {
   }
 }
 
+/**
+ * Read the live OpenClaw config, find the active model.primary ref, and
+ * patch streaming: true for it.  For proxy-managed models the model.primary
+ * never changes after onboard, so enabling it once covers every proxy model
+ * switch.
+ */
+async function enableStreamingForActiveModel(): Promise<void> {
+  const client = await waitForClient();
+  const snapshot = await client.request<Record<string, unknown>>("config.get", {});
+
+  const agents = snapshot?.agents as Record<string, unknown> | undefined;
+  const defaults = agents?.defaults as Record<string, unknown> | undefined;
+  const model = defaults?.model as Record<string, unknown> | undefined;
+  const primary = model?.primary as string | undefined;
+
+  if (!primary) {
+    console.warn("[NeMoClaw] Could not determine active model primary from config");
+    return;
+  }
+
+  const models = defaults?.models as Record<string, Record<string, unknown>> | undefined;
+  if (models?.[primary]?.streaming === true) return;
+
+  await patchConfig({
+    agents: {
+      defaults: {
+        models: {
+          [primary]: { streaming: true },
+        },
+      },
+    },
+  });
+}
+
 function bootstrap() {
   showConnectOverlay();
 
-  waitForReconnect(30_000).then(revealApp).catch(revealApp);
+  waitForReconnect(30_000)
+    .then(() => {
+      revealApp();
+      enableStreamingForActiveModel().catch((err) =>
+        console.warn("[NeMoClaw] Failed to enable streaming:", err),
+      );
+    })
+    .catch(revealApp);
 
   const keysIngested = ingestKeysFromUrl();
 
@@ -121,8 +119,9 @@ function bootstrap() {
 
   const defaultKey = resolveApiKey(DEFAULT_MODEL.keyType);
   if (keysIngested || isKeyConfigured(defaultKey)) {
-    applyIngestedKeys();
-    injectKeyViaHost(defaultKey);
+    syncKeysToProviders().catch((e) =>
+      console.warn("[NeMoClaw] bootstrap provider key sync failed:", e),
+    );
   }
 
   if (inject()) {

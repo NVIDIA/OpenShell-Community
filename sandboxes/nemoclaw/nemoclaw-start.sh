@@ -79,7 +79,7 @@ openclaw onboard \
   --skip-health \
   --auth-choice custom-api-key \
   --custom-base-url "https://inference.local/v1" \
-  --custom-model-id "aws/anthropic/bedrock-claude-opus-4-6" \
+  --custom-model-id "-" \
   --custom-api-key "$_ONBOARD_KEY" \
   --secret-input-mode plaintext \
   --custom-compatibility openai \

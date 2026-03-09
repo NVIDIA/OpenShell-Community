@@ -1204,7 +1204,7 @@ body.nemoclaw-switching openclaw-app {
   background: var(--bg-elevated, #1a1d25);
   padding: 14px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 :root[data-theme="light"] .nemoclaw-policy-imm-card {
@@ -1737,8 +1737,7 @@ body.nemoclaw-switching openclaw-app {
   content: attr(data-tip);
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   padding: 6px 10px;
   border-radius: 6px;
   background: var(--card, #181b22);
