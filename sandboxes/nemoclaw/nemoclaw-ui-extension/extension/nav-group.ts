@@ -27,7 +27,7 @@ interface NemoClawPage {
 const NEMOCLAW_PAGES: NemoClawPage[] = [
   {
     id: "nemoclaw-policy",
-    label: "Policy",
+    label: "Sandbox Policy",
     icon: ICON_SHIELD,
     title: "Sandbox Policy",
     subtitle: "View and manage sandbox security guardrails",

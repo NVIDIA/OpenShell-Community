@@ -21,8 +21,15 @@ COPY nemoclaw-start.sh /usr/local/bin/nemoclaw-start
 RUN chmod +x /usr/local/bin/nemoclaw-start
 
 # Install the policy reverse proxy (sits in front of the OpenClaw gateway,
-# intercepts /api/policy to read/write /etc/navigator/policy.yaml)
+# intercepts /api/policy to read/write the sandbox policy file) and its
+# runtime dependencies for gRPC gateway sync.
 COPY policy-proxy.js /usr/local/lib/policy-proxy.js
+COPY proto/ /usr/local/lib/nemoclaw-proto/
+RUN npm install -g @grpc/grpc-js @grpc/proto-loader js-yaml
+
+# Allow the sandbox user to read the default policy (the startup script
+# copies it to a writable location; this chown covers non-Landlock envs)
+RUN chown -R sandbox:sandbox /etc/navigator
 
 # Stage the NeMoClaw DevX extension source
 COPY nemoclaw-ui-extension/extension/ /opt/nemoclaw-devx/

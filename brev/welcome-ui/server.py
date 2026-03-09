@@ -5,6 +5,7 @@
 
 """NemoClaw Welcome UI — HTTP server with sandbox lifecycle APIs."""
 
+import http.client
 import http.server
 import json
 import os
@@ -12,19 +13,27 @@ import re
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
+
+try:
+    import yaml as _yaml
+except ImportError:
+    _yaml = None
 
 PORT = int(os.environ.get("PORT", 8081))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.environ.get("REPO_ROOT", os.path.join(ROOT, "..", ".."))
 SANDBOX_DIR = os.path.join(REPO_ROOT, "sandboxes", "nemoclaw")
 NEMOCLAW_IMAGE = "ghcr.io/nvidia/nemoclaw-community/sandboxes/nemoclaw:local"
-# POLICY_FILE = os.path.join(SANDBOX_DIR, "policy.yaml")
+POLICY_FILE = os.path.join(SANDBOX_DIR, "policy.yaml")
 
 LOG_FILE = "/tmp/nemoclaw-sandbox-create.log"
 BREV_ENV_ID = os.environ.get("BREV_ENV_ID", "")
 _detected_brev_id = ""
+
+SANDBOX_PORT = 18789
 
 _sandbox_lock = threading.Lock()
 _sandbox_state = {
@@ -33,6 +42,17 @@ _sandbox_state = {
     "url": None,
     "error": None,
 }
+
+
+def _sandbox_ready() -> bool:
+    with _sandbox_lock:
+        if _sandbox_state["status"] == "running":
+            return True
+        if _sandbox_state["status"] in ("idle", "creating"):
+            if _gateway_log_ready() and _port_open("127.0.0.1", SANDBOX_PORT):
+                _sandbox_state["status"] = "running"
+                return True
+    return False
 
 
 def _extract_brev_id(host: str) -> str:
@@ -53,15 +73,15 @@ def _maybe_detect_brev_id(host: str) -> None:
 def _build_openclaw_url(token: str | None) -> str:
     """Build the externally reachable OpenClaw URL.
 
-    Uses the Cloudflare tunnel pattern from nemoclaw-start.sh when
-    BREV_ENV_ID is available (or detected from the request Host header),
-    otherwise falls back to localhost.
+    Points to the welcome-ui server itself (port 8081) which reverse-proxies
+    to the sandbox.  This keeps the browser on a single origin and avoids
+    Brev cross-origin blocks between port subdomains.
     """
     brev_id = BREV_ENV_ID or _detected_brev_id
     if brev_id:
-        url = f"https://187890-{brev_id}.brevlab.com/"
+        url = f"https://80810-{brev_id}.brevlab.com/"
     else:
-        url = "http://127.0.0.1:18789/"
+        url = f"http://127.0.0.1:{PORT}/"
     if token:
         url += f"?token={token}"
     return url
@@ -103,6 +123,34 @@ def _gateway_log_ready() -> bool:
         return False
 
 
+def _generate_gateway_policy() -> str | None:
+    """Create a temp policy file suitable for gateway creation.
+
+    Strips ``inference`` (not in the proto schema) and ``process`` (immutable
+    after creation — including it at creation locks you into it and makes
+    subsequent updates impossible).
+
+    Returns the path to the temp file, or None if no source policy was found.
+    The caller is responsible for deleting the file.
+    """
+    if not os.path.isfile(POLICY_FILE):
+        sys.stderr.write(f"[welcome-ui] Policy file not found: {POLICY_FILE}\n")
+        return None
+
+    try:
+        with open(POLICY_FILE) as f:
+            raw = f.read()
+        stripped = _strip_policy_fields(raw, extra_fields=("process",))
+        fd, path = tempfile.mkstemp(suffix=".yaml", prefix="sandbox-policy-")
+        with os.fdopen(fd, "w") as f:
+            f.write(stripped)
+        sys.stderr.write(f"[welcome-ui] Generated gateway policy from {POLICY_FILE} → {path}\n")
+        return path
+    except Exception as exc:
+        sys.stderr.write(f"[welcome-ui] Failed to generate gateway policy: {exc}\n")
+        return None
+
+
 def _cleanup_existing_sandbox():
     """Delete any leftover sandbox named 'nemoclaw' from a previous attempt."""
     try:
@@ -127,6 +175,8 @@ def _run_sandbox_create():
 
     chat_ui_url = _build_openclaw_url(token=None)
 
+    policy_path = _generate_gateway_policy()
+
     env = os.environ.copy()
     # Use `env` to inject vars into the sandbox command.  Avoids the
     # nemoclaw -e flag which has a quoting bug that causes SSH to
@@ -138,6 +188,10 @@ def _run_sandbox_create():
         "--name", "nemoclaw",
         "--from", NEMOCLAW_IMAGE,
         "--forward", "18789",
+    ]
+    if policy_path:
+        cmd += ["--policy", policy_path]
+    cmd += [
         "--",
         "env",
         f"CHAT_UI_URL={chat_ui_url}",
@@ -174,6 +228,12 @@ def _run_sandbox_create():
 
         proc.wait()
         streamer.join(timeout=5)
+
+        if policy_path:
+            try:
+                os.unlink(policy_path)
+            except OSError:
+                pass
 
         if proc.returncode != 0:
             with _sandbox_lock:
@@ -226,29 +286,223 @@ def _get_hostname() -> str:
     return socket.getfqdn()
 
 
+def _strip_policy_fields(yaml_text: str, extra_fields: tuple[str, ...] = ()) -> str:
+    """Remove fields that the gateway does not understand or rejects.
+
+    Always strips ``inference``.  Pass additional top-level keys via
+    *extra_fields* (e.g. ``("process",)``) to strip those too.
+    """
+    remove = {"inference"} | set(extra_fields)
+    if _yaml is not None:
+        doc = _yaml.safe_load(yaml_text)
+        if isinstance(doc, dict):
+            for key in remove:
+                doc.pop(key, None)
+            return _yaml.dump(doc, default_flow_style=False, sort_keys=False)
+    lines = yaml_text.splitlines(keepends=True)
+    out, skip = [], False
+    for line in lines:
+        if any(re.match(rf"^{re.escape(k)}:", line) for k in remove):
+            skip = True
+            continue
+        if skip and (line[0:1] in (" ", "\t") or line.strip() == ""):
+            continue
+        skip = False
+        out.append(line)
+    return "".join(out)
+
+
+def _log(msg: str) -> None:
+    ts = time.strftime("%H:%M:%S")
+    sys.stderr.write(f"[policy-sync {ts}] {msg}\n")
+    sys.stderr.flush()
+
+
+def _sync_policy_to_gateway(yaml_text: str, sandbox_name: str = "nemoclaw") -> dict:
+    """Push a policy YAML to the NemoClaw gateway via the host-side CLI."""
+    _log(f"step 2/4: stripping inference+process fields ({len(yaml_text)} bytes in)")
+    stripped = _strip_policy_fields(yaml_text, extra_fields=("process",))
+    _log(f"         stripped to {len(stripped)} bytes")
+
+    fd, tmp_path = tempfile.mkstemp(suffix=".yaml", prefix="policy-sync-")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(stripped)
+        cmd = ["nemoclaw", "policy", "set", sandbox_name, "--policy", tmp_path]
+        _log(f"step 3/4: running {' '.join(cmd)}")
+        t0 = time.time()
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        elapsed = time.time() - t0
+        _log(f"         CLI exited {result.returncode} in {elapsed:.1f}s")
+        if result.stdout.strip():
+            _log(f"         stdout: {result.stdout.strip()}")
+        if result.stderr.strip():
+            _log(f"         stderr: {result.stderr.strip()}")
+    finally:
+        os.unlink(tmp_path)
+
+    if result.returncode != 0:
+        err_msg = (result.stderr or result.stdout or "unknown error").strip()
+        _log(f"step 4/4: FAILED — {err_msg}")
+        return {"ok": False, "error": err_msg}
+
+    output = result.stdout + result.stderr
+    ver_match = re.search(r"version\s+(\d+)", output)
+    hash_match = re.search(r"hash:\s*([a-f0-9]+)", output)
+    version = int(ver_match.group(1)) if ver_match else 0
+    policy_hash = hash_match.group(1) if hash_match else ""
+    _log(f"step 4/4: SUCCESS — version={version} hash={policy_hash}")
+    return {"ok": True, "applied": True, "version": version, "policy_hash": policy_hash}
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
 
+    _proxy_response = False
+
     def end_headers(self):
-        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        if not self._proxy_response:
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
-    # -- Routing --------------------------------------------------------
+    # -- Unified routing ------------------------------------------------
 
-    def do_POST(self):
+    def _route(self):
         _maybe_detect_brev_id(self.headers.get("Host", ""))
-        if self.path == "/api/install-openclaw":
+        path = self.path.split("?")[0]
+
+        if self.headers.get("Upgrade", "").lower() == "websocket" and _sandbox_ready():
+            return self._proxy_websocket()
+
+        if self.command == "OPTIONS":
+            self.send_response(204)
+            self.end_headers()
+            return
+
+        if path == "/api/sandbox-status" and self.command == "GET":
+            return self._handle_sandbox_status()
+        if path == "/api/connection-details" and self.command == "GET":
+            return self._handle_connection_details()
+        if path == "/api/install-openclaw" and self.command == "POST":
             return self._handle_install_openclaw()
+        if path == "/api/policy-sync" and self.command == "POST":
+            return self._handle_policy_sync()
+
+        if _sandbox_ready():
+            return self._proxy_to_sandbox()
+
+        if self.command in ("GET", "HEAD"):
+            return super().do_GET()
+
         self.send_error(404)
 
-    def do_GET(self):
-        _maybe_detect_brev_id(self.headers.get("Host", ""))
-        if self.path == "/api/sandbox-status":
-            return self._handle_sandbox_status()
-        if self.path == "/api/connection-details":
-            return self._handle_connection_details()
-        return super().do_GET()
+    do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = lambda self: self._route()
+    def do_OPTIONS(self): return self._route()
+
+    # -- Reverse proxy to sandbox --------------------------------------
+
+    _HOP_BY_HOP = frozenset((
+        "connection", "keep-alive", "proxy-authenticate",
+        "proxy-authorization", "te", "trailers",
+        "transfer-encoding", "upgrade",
+    ))
+
+    def _proxy_to_sandbox(self):
+        """Forward an HTTP request to the sandbox proxy on localhost."""
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", SANDBOX_PORT, timeout=120)
+
+            body = None
+            cl = self.headers.get("Content-Length")
+            if cl:
+                body = self.rfile.read(int(cl))
+
+            hdrs = {}
+            for key, val in self.headers.items():
+                if key.lower() == "host":
+                    continue
+                hdrs[key] = val
+            hdrs["Host"] = f"127.0.0.1:{SANDBOX_PORT}"
+
+            conn.request(self.command, self.path, body=body, headers=hdrs)
+            resp = conn.getresponse()
+
+            resp_body = resp.read()
+
+            self._proxy_response = True
+            self.send_response_only(resp.status, resp.reason)
+            for key, val in resp.getheaders():
+                if key.lower() in self._HOP_BY_HOP:
+                    continue
+                if key.lower() == "content-length":
+                    continue
+                self.send_header(key, val)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+
+            self.wfile.write(resp_body)
+            self.wfile.flush()
+            conn.close()
+        except Exception as exc:
+            sys.stderr.write(f"[welcome-ui] proxy error: {exc}\n")
+            try:
+                self.send_error(502, "Sandbox unavailable")
+            except Exception:
+                pass
+        finally:
+            self._proxy_response = False
+            self.close_connection = True
+
+    def _proxy_websocket(self):
+        """Pipe a WebSocket upgrade to the sandbox via raw sockets."""
+        try:
+            upstream = socket.create_connection(
+                ("127.0.0.1", SANDBOX_PORT), timeout=5,
+            )
+        except OSError:
+            self.send_error(502, "Sandbox unavailable")
+            return
+
+        req = f"{self.requestline}\r\n"
+        for key, val in self.headers.items():
+            if key.lower() == "host":
+                req += f"Host: 127.0.0.1:{SANDBOX_PORT}\r\n"
+            else:
+                req += f"{key}: {val}\r\n"
+        req += "\r\n"
+        upstream.sendall(req.encode())
+
+        client = self.connection
+
+        def _pipe(src, dst):
+            try:
+                while True:
+                    data = src.recv(65536)
+                    if not data:
+                        break
+                    dst.sendall(data)
+            except Exception:
+                pass
+            try:
+                dst.shutdown(socket.SHUT_WR)
+            except Exception:
+                pass
+
+        t1 = threading.Thread(target=_pipe, args=(client, upstream), daemon=True)
+        t2 = threading.Thread(target=_pipe, args=(upstream, client), daemon=True)
+        t1.start()
+        t2.start()
+        t1.join(timeout=7200)
+        t2.join(timeout=7200)
+        try:
+            upstream.close()
+        except Exception:
+            pass
+        self.close_connection = True
 
     # -- POST /api/install-openclaw ------------------------------------
 
@@ -275,15 +529,37 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         return self._json_response(200, {"ok": True})
 
+    # -- POST /api/policy-sync ------------------------------------------
+
+    def _handle_policy_sync(self):
+        origin = self.headers.get("Origin", "unknown")
+        _log(f"── POST /api/policy-sync received (origin={origin})")
+        _log("step 1/4: reading request body")
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length == 0:
+            _log("         REJECTED: empty body")
+            return self._json_response(400, {"ok": False, "error": "empty body"})
+        body = self.rfile.read(content_length).decode("utf-8", errors="replace")
+        _log(f"         received {len(body)} bytes")
+        if "version:" not in body:
+            _log("         REJECTED: missing version field")
+            return self._json_response(400, {
+                "ok": False, "error": "invalid policy: missing version field",
+            })
+        result = _sync_policy_to_gateway(body)
+        status = 200 if result.get("ok") else 502
+        _log(f"── responding {status}: {json.dumps(result)}")
+        return self._json_response(status, result)
+
     # -- GET /api/sandbox-status ----------------------------------------
 
     def _handle_sandbox_status(self):
         with _sandbox_lock:
             state = dict(_sandbox_state)
 
-        if (state["status"] == "creating"
+        if (state["status"] in ("creating", "idle")
                 and _gateway_log_ready()
-                and _port_open("127.0.0.1", 18789)):
+                and _port_open("127.0.0.1", SANDBOX_PORT)):
             token = _read_openclaw_token()
             url = _build_openclaw_url(token)
             with _sandbox_lock:
