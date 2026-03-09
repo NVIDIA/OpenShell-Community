@@ -8,6 +8,7 @@
 import { ICON_SHIELD, ICON_ROUTE, ICON_KEY } from "./icons.ts";
 import { renderApiKeysPage, areAllKeysConfigured, updateStatusDots } from "./api-keys-page.ts";
 import { renderPolicyPage } from "./policy-page.ts";
+import { renderInferencePage } from "./inference-page.ts";
 
 // ---------------------------------------------------------------------------
 // Page definitions
@@ -40,8 +41,8 @@ const NEMOCLAW_PAGES: NemoClawPage[] = [
     icon: ICON_ROUTE,
     title: "Inference Routes",
     subtitle: "Configure model routing and endpoint mappings",
-    emptyMessage:
-      "Inference route management is coming soon. You'll be able to configure model routing, load balancing, and failover strategies here.",
+    emptyMessage: "",
+    customRender: renderInferencePage,
   },
   {
     id: "nemoclaw-api-keys",

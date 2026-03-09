@@ -694,6 +694,37 @@ body.nemoclaw-switching openclaw-app {
   animation: nemoclaw-spin 1s linear infinite;
 }
 
+.nemoclaw-switching-banner--propagating {
+  border-color: rgba(118, 185, 0, 0.2);
+  background: rgba(118, 185, 0, 0.06);
+  color: #76B900;
+  flex-wrap: wrap;
+}
+
+.nemoclaw-switching-banner--propagating svg {
+  animation: nemoclaw-spin 2s linear infinite;
+}
+
+.nemoclaw-switching-banner__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.nemoclaw-propagation-bar {
+  margin-top: 6px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(118, 185, 0, 0.15);
+  overflow: hidden;
+}
+
+.nemoclaw-propagation-bar__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 2px;
+  background: #76B900;
+}
+
 .nemoclaw-switching-banner--success {
   border-color: rgba(118, 185, 0, 0.3);
   background: rgba(118, 185, 0, 0.1);
@@ -2686,4 +2717,991 @@ body.nemoclaw-switching openclaw-app {
   border-color: var(--danger, #ef4444);
   color: var(--danger, #ef4444);
   background: rgba(239, 68, 68, 0.08);
+}
+
+/* ===================================================================
+   INFERENCE PROVIDERS PAGE
+   =================================================================== */
+
+.nemoclaw-inference-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 100px;
+}
+
+/* ===================================================================
+   Gateway Status Strip (Section 1)
+   =================================================================== */
+
+.nc-gateway-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  position: relative;
+}
+
+:root[data-theme="light"] .nc-gateway-strip {
+  background: #fff;
+}
+
+.nc-gateway-strip__left {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.nc-gateway-strip__endpoint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(118, 185, 0, 0.08);
+  border: 1px solid rgba(118, 185, 0, 0.2);
+  color: #76B900;
+  white-space: nowrap;
+}
+
+.nc-gateway-strip__endpoint svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
+
+.nc-gateway-strip__desc {
+  font-size: 12px;
+  color: var(--muted, #71717a);
+  flex: 1;
+  min-width: 0;
+}
+
+.nc-gateway-strip__help {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--muted, #71717a);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.nc-gateway-strip__help:hover,
+.nc-gateway-strip__help--active {
+  background: var(--bg-hover, #262a35);
+  color: #76B900;
+}
+
+.nc-gateway-strip__help svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nc-gateway-strip__tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 300px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card, #181b22);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  animation: nemoclaw-scale-in 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text, #e4e4e7);
+}
+
+:root[data-theme="light"] .nc-gateway-strip__tooltip {
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.nc-gateway-tooltip__row {
+  padding: 4px 0;
+}
+
+.nc-gateway-tooltip__row strong {
+  color: var(--text-strong, #fafafa);
+}
+
+.nc-gateway-tooltip__row code {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+}
+
+.nc-gateway-tooltip__arrow {
+  text-align: center;
+  color: var(--muted, #71717a);
+  font-size: 14px;
+  padding: 2px 0;
+}
+
+.nc-gateway-tooltip__footer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, #27272a);
+  font-size: 11px;
+  color: var(--muted, #71717a);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nc-gateway-tooltip__footer svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ===================================================================
+   Quick Model Picker (Section 2) — horizontal chip strip
+   =================================================================== */
+
+.nc-quick-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nc-quick-picker__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong, #fafafa);
+}
+
+.nc-quick-picker__strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nc-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: 999px;
+  background: var(--bg-elevated, #1a1d25);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #e4e4e7);
+  white-space: nowrap;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+:root[data-theme="light"] .nc-quick-chip {
+  background: #fff;
+}
+
+.nc-quick-chip:hover {
+  border-color: rgba(118, 185, 0, 0.5);
+  background: rgba(118, 185, 0, 0.05);
+}
+
+.nc-quick-chip--active {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.nc-quick-chip--active:hover {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.nc-quick-chip__name {
+  line-height: 1;
+}
+
+.nc-quick-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+  cursor: pointer;
+}
+
+.nc-quick-chip__remove svg {
+  width: 10px;
+  height: 10px;
+}
+
+.nc-quick-chip__remove:hover {
+  opacity: 1;
+}
+
+.nc-quick-picker__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted, #71717a);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.nc-quick-picker__add-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.nc-quick-picker__add-btn:hover {
+  color: #76B900;
+}
+
+.nc-quick-picker__add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+}
+
+.nc-quick-picker__add-input {
+  flex: 1 1 180px;
+  min-width: 120px;
+}
+
+.nc-quick-picker__add-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+}
+
+/* ===================================================================
+   Active Configuration (Section 3)
+   =================================================================== */
+
+.nc-active-config {
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  padding: 16px 20px;
+}
+
+:root[data-theme="light"] .nc-active-config {
+  background: #fff;
+}
+
+.nc-active-config__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong, #fafafa);
+  margin-bottom: 14px;
+}
+
+.nc-active-config__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.nc-active-config__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #a1a1aa);
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.nc-active-config__provider-select {
+  min-width: 160px;
+}
+
+.nc-active-config__model-input {
+  flex: 1;
+  min-width: 200px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.nc-active-config__endpoint-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nc-active-config__endpoint-value {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  color: var(--text, #e4e4e7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nc-active-config__hint {
+  font-size: 10px;
+  color: var(--muted, #71717a);
+  font-style: italic;
+}
+
+.nc-active-config__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text, #e4e4e7);
+}
+
+/* Auth chip (inside provider body) */
+
+.nc-auth-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(161, 161, 170, 0.08);
+  color: var(--muted, #a1a1aa);
+  border: 1px solid rgba(161, 161, 170, 0.15);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+/* ===================================================================
+   Providers Section (Section 4 — collapsible)
+   =================================================================== */
+
+.nc-providers-section {
+  border: 1px solid var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d25);
+  overflow: hidden;
+}
+
+:root[data-theme="light"] .nc-providers-section {
+  background: #fff;
+}
+
+.nc-providers-section__header--static {
+  cursor: default;
+}
+
+.nc-providers-section__header--static:hover {
+  background: transparent;
+}
+
+.nc-providers-section__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.nc-providers-section__header:hover {
+  background: rgba(118, 185, 0, 0.03);
+}
+
+.nc-providers-section__chevron {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  color: var(--muted, #71717a);
+  transition: transform 200ms ease;
+}
+
+.nc-providers-section__chevron svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nc-providers-section--expanded .nc-providers-section__chevron {
+  transform: rotate(90deg);
+  color: #76B900;
+}
+
+.nc-providers-section__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong, #fafafa);
+}
+
+.nc-providers-section__subtitle {
+  font-size: 12px;
+  color: var(--muted, #71717a);
+  margin-left: auto;
+}
+
+.nc-providers-section__body {
+  padding: 0 16px 16px;
+}
+
+/* --- Type Pills --- */
+
+.nemoclaw-inference-type-pill {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  line-height: 1.5;
+  background: var(--bg-2, #252525);
+  color: var(--fg-muted, #888);
+  border: 1px solid var(--border, #333);
+  margin-left: 8px;
+}
+.nemoclaw-inference-type-pill--openai { border-color: #10a37f; color: #10a37f; }
+.nemoclaw-inference-type-pill--anthropic { border-color: #d97706; color: #d97706; }
+.nemoclaw-inference-type-pill--nvidia { border-color: #76b900; color: #76b900; }
+.nemoclaw-inference-type-pill--generic { border-color: #6b7280; color: #6b7280; }
+
+/* --- Status Dots --- */
+
+.nemoclaw-inference-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.nemoclaw-inference-status-dot--ok { background: #22c55e; }
+.nemoclaw-inference-status-dot--missing { background: #f59e0b; }
+
+/* --- Provider Card header layout --- */
+
+.nemoclaw-policy-netcard__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+.nemoclaw-policy-netcard__toggle:hover {
+  opacity: 0.85;
+}
+.nemoclaw-policy-netcard__chevron {
+  display: flex;
+  align-items: center;
+  transition: transform 0.15s ease;
+}
+.nemoclaw-policy-netcard__chevron svg {
+  width: 14px;
+  height: 14px;
+  stroke: var(--fg-muted, #888);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nemoclaw-policy-netcard--expanded .nemoclaw-policy-netcard__chevron {
+  transform: rotate(90deg);
+}
+.nemoclaw-policy-netcard__name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nemoclaw-policy-netcard__summary {
+  font-size: 0.72rem;
+  color: var(--fg-muted, #666);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: auto;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.nemoclaw-policy-netcard__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* --- Immutable fields display --- */
+
+.nemoclaw-inference-immutable {
+  background: var(--bg-2, #252525);
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.nemoclaw-inference-immutable__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.nemoclaw-inference-immutable__lock {
+  display: flex;
+  align-items: center;
+  color: var(--fg-muted, #666);
+}
+.nemoclaw-inference-immutable__lock svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nemoclaw-inference-immutable__label {
+  font-size: 0.72rem;
+  color: var(--fg-muted, #888);
+  min-width: 40px;
+}
+.nemoclaw-inference-immutable__value {
+  font-size: 0.78rem;
+  color: var(--fg, #ccc);
+  word-break: break-all;
+}
+.nemoclaw-inference-immutable__hint {
+  font-size: 0.68rem;
+  color: var(--fg-muted, #666);
+  margin-top: 6px;
+  padding-left: 20px;
+}
+
+/* --- Credential chips --- */
+
+.nemoclaw-inference-cred-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.nemoclaw-inference-cred-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-2, #252525);
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+.nemoclaw-inference-cred-chip code {
+  color: var(--fg, #ccc);
+  font-size: 0.72rem;
+}
+.nemoclaw-inference-cred-chip__status {
+  color: #22c55e;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.nemoclaw-inference-cred-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nemoclaw-inference-cred-input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* --- Config key/value rows --- */
+
+.nemoclaw-inference-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nemoclaw-inference-config-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nemoclaw-inference-config-row__key {
+  flex: 0 0 180px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+}
+.nemoclaw-inference-config-row__key--readonly {
+  opacity: 0.7;
+  cursor: default;
+}
+.nemoclaw-inference-config-row__value {
+  flex: 1;
+  font-size: 0.78rem;
+}
+
+/* --- Protocol list (read-only) --- */
+
+.nemoclaw-inference-proto-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nemoclaw-inference-proto-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--bg-2, #252525);
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+.nemoclaw-inference-proto-row__method {
+  font-weight: 600;
+  color: var(--accent, #76b900);
+  min-width: 40px;
+}
+.nemoclaw-inference-proto-row__path {
+  color: var(--fg, #ccc);
+  flex: 1;
+}
+.nemoclaw-inference-proto-row__arrow {
+  color: var(--fg-muted, #555);
+  font-size: 0.7rem;
+}
+.nemoclaw-inference-proto-row__id {
+  color: var(--fg-muted, #888);
+  font-size: 0.68rem;
+}
+
+/* --- Platform Behaviors footer --- */
+
+.nemoclaw-inference-platform {
+  background: var(--bg-1, #1e1e1e);
+  border: 1px solid var(--border, #333);
+  border-radius: 10px;
+  padding: 16px 20px;
+  opacity: 0.85;
+}
+.nemoclaw-inference-platform__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--fg-muted, #999);
+  margin-bottom: 10px;
+}
+.nemoclaw-inference-platform__header svg,
+.nemoclaw-inference-platform__lock svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nemoclaw-inference-platform__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 0.75rem;
+}
+.nemoclaw-inference-platform__row code {
+  font-size: 0.72rem;
+  background: var(--bg-2, #252525);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--fg-muted, #999);
+  flex-shrink: 0;
+  min-width: 120px;
+}
+.nemoclaw-inference-platform__row span {
+  color: var(--fg-muted, #777);
+}
+.nemoclaw-inference-platform__footer {
+  margin-top: 10px;
+  font-size: 0.68rem;
+  color: var(--fg-muted, #555);
+  font-style: italic;
+}
+
+/* --- Active provider badge --- */
+
+.nemoclaw-inference-active-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+/* --- Active provider card border --- */
+
+.nemoclaw-policy-netcard--active {
+  border-left: 3px solid #22c55e;
+}
+
+/* --- Activate button --- */
+
+.nemoclaw-inference-activate-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--accent, #76b900);
+  background: transparent;
+  color: var(--accent, #76b900);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nemoclaw-inference-activate-btn:hover {
+  background: var(--accent, #76b900);
+  color: #fff;
+}
+.nemoclaw-inference-activate-btn--current {
+  border-color: #22c55e;
+  color: #22c55e;
+  opacity: 0.7;
+  cursor: default;
+}
+.nemoclaw-inference-activate-btn--current:hover {
+  background: transparent;
+  color: #22c55e;
+}
+
+/* --- Model input --- */
+
+.nemoclaw-inference-model-input {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+}
+
+/* --- Delete-active-provider warning --- */
+
+.nemoclaw-policy-netcard--confirming-danger {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2) inset;
+}
+
+.nemoclaw-inference-delete-warning {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+/* (Zone A and Zone C styles removed — replaced by nc-* sections above) */
+
+/* ===================================================================
+   Empty State — Template Tiles (P4)
+   =================================================================== */
+
+.nemoclaw-inference-empty-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  animation: nemoclaw-fade-in 200ms ease;
+}
+
+@media (max-width: 640px) {
+  .nemoclaw-inference-empty-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nemoclaw-inference-empty-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px dashed var(--border, #27272a);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text, #e4e4e7);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.nemoclaw-inference-empty-tile:hover {
+  border-color: #76B900;
+  background: rgba(118, 185, 0, 0.04);
+  box-shadow: 0 0 0 1px rgba(118, 185, 0, 0.15);
+}
+
+.nemoclaw-inference-empty-tile__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong, #fafafa);
+}
+
+.nemoclaw-inference-empty-tile__type {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(118, 185, 0, 0.08);
+  color: #76B900;
+  width: fit-content;
+}
+
+.nemoclaw-inference-empty-tile__url {
+  font-size: 11px;
+  color: var(--muted, #71717a);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===================================================================
+   Flattened Provider Body Rows
+   =================================================================== */
+
+.nemoclaw-inference-flat-row {
+  margin-bottom: 12px;
+}
+
+.nemoclaw-inference-flat-row:last-child {
+  margin-bottom: 0;
+}
+
+.nemoclaw-inference-proto-flat {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--border, #27272a);
+}
+
+.nemoclaw-inference-proto-inline {
+  font-size: 0.72rem;
+  color: var(--muted, #71717a);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+/* ===================================================================
+   Model Selector — Grouped Dropdown
+   =================================================================== */
+
+.nemoclaw-model-group-header {
+  padding: 6px 14px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #71717a);
+  pointer-events: none;
+}
+
+.nemoclaw-model-dropdown__divider {
+  height: 1px;
+  background: var(--border, #27272a);
+  margin: 4px 8px;
+}
+
+.nemoclaw-model-dropdown__empty {
+  padding: 12px 14px;
+  color: var(--muted, #71717a);
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+  user-select: none;
+}
+
+.nemoclaw-model-dropdown__route-link {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--muted, #71717a);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color 100ms ease, background 100ms ease;
+}
+
+.nemoclaw-model-dropdown__route-link:hover {
+  color: #76B900;
+  background: rgba(118, 185, 0, 0.06);
 }

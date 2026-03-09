@@ -114,10 +114,88 @@ export interface ModelEntry {
   modelRef: string;
   keyType: ApiKeyType;
   providerConfig: ModelProviderConfig;
+  isDynamic?: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Model registry
+// Curated models — hardcoded presets backed by the nvidia-inference provider.
+// All route through inference.local; the NemoClaw proxy injects credentials.
+// ---------------------------------------------------------------------------
+
+export interface CuratedModel {
+  id: string;
+  name: string;
+  modelId: string;
+  providerName: string;
+}
+
+export const CURATED_MODELS: readonly CuratedModel[] = [
+  {
+    id: "curated-claude-opus",
+    name: "Claude Opus 4.6",
+    modelId: "aws/anthropic/bedrock-claude-opus-4-6",
+    providerName: "nvidia-inference",
+  },
+  {
+    id: "curated-gpt-oss",
+    name: "GPT-OSS 20B",
+    modelId: "nvidia/openai/gpt-oss-20b",
+    providerName: "nvidia-inference",
+  },
+  {
+    id: "curated-nemotron-super",
+    name: "Nemotron 3 Super",
+    modelId: "nvidia/nvidia/nemotron-3-super-preview",
+    providerName: "nvidia-inference",
+  },
+  {
+    id: "curated-qwen3",
+    name: "Qwen3 Next 80B",
+    modelId: "nvidia/qwen/qwen3-next-80b-a3b-instruct",
+    providerName: "nvidia-inference",
+  },
+  {
+    id: "curated-llama-70b",
+    name: "Llama 3.3 70B",
+    modelId: "nvidia/meta/llama-3.3-70b-instruct",
+    providerName: "nvidia-inference",
+  },
+];
+
+export function curatedToModelEntry(c: CuratedModel): ModelEntry {
+  const key = `curated-${c.providerName}`;
+  return {
+    id: c.id,
+    name: c.name,
+    isDefault: c.id === "curated-claude-opus",
+    providerKey: key,
+    modelRef: `${key}/${c.modelId}`,
+    keyType: "inference",
+    isDynamic: true,
+    providerConfig: {
+      baseUrl: "https://inference.local/v1",
+      api: "openai-completions",
+      models: [
+        {
+          id: c.modelId,
+          name: c.name,
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 128_000,
+          maxTokens: 8192,
+        },
+      ],
+    },
+  };
+}
+
+export function getCuratedByModelId(modelId: string): CuratedModel | undefined {
+  return CURATED_MODELS.find((c) => c.modelId === modelId);
+}
+
+// ---------------------------------------------------------------------------
+// Legacy MODEL_REGISTRY — kept as the default model reference for bootstrap
 // ---------------------------------------------------------------------------
 
 const DEFAULT_PROVIDER_KEY = "custom-inference-api-nvidia-com";
@@ -125,7 +203,7 @@ const DEFAULT_PROVIDER_KEY = "custom-inference-api-nvidia-com";
 export const MODEL_REGISTRY: readonly ModelEntry[] = [
   {
     id: "nvidia-claude-opus-4-6",
-    name: "NVIDIA Claude Opus 4.6",
+    name: "Claude Opus 4.6",
     isDefault: true,
     providerKey: DEFAULT_PROVIDER_KEY,
     modelRef: `${DEFAULT_PROVIDER_KEY}/aws/anthropic/bedrock-claude-opus-4-6`,
@@ -136,7 +214,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
       models: [
         {
           id: "aws/anthropic/bedrock-claude-opus-4-6",
-          name: "aws/anthropic/bedrock-claude-opus-4-6 (Custom Provider)",
+          name: "Claude Opus 4.6",
           reasoning: false,
           input: ["text"],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -146,81 +224,79 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
       ],
     },
   },
-  {
-    id: "kimi-k2.5",
-    name: "Kimi K2.5",
-    isDefault: false,
-    providerKey: "custom-nvidia-kimi-k2-5",
-    modelRef: "custom-nvidia-kimi-k2-5/moonshotai/kimi-k2.5",
-    keyType: "integrate",
-    providerConfig: {
-      baseUrl: "https://integrate.api.nvidia.com/v1",
-      api: "openai-completions",
-      models: [
-        {
-          id: "moonshotai/kimi-k2.5",
-          name: "Kimi K2.5 (NVIDIA)",
-          reasoning: false,
-          input: ["text"],
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: 131_072,
-          maxTokens: 16_384,
-        },
-      ],
-    },
-  },
-  {
-    id: "nemotron-ultra-253b",
-    name: "Nemotron Ultra 253B",
-    isDefault: false,
-    providerKey: "custom-nvidia-nemotron-ultra",
-    modelRef: "custom-nvidia-nemotron-ultra/nvidia/llama-3.1-nemotron-ultra-253b-v1",
-    keyType: "integrate",
-    providerConfig: {
-      baseUrl: "https://integrate.api.nvidia.com/v1",
-      api: "openai-completions",
-      models: [
-        {
-          id: "nvidia/llama-3.1-nemotron-ultra-253b-v1",
-          name: "Nemotron Ultra 253B (NVIDIA)",
-          reasoning: false,
-          input: ["text"],
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: 131_072,
-          maxTokens: 8192,
-        },
-      ],
-    },
-  },
-  {
-    id: "deepseek-v3.2",
-    name: "DeepSeek V3.2",
-    isDefault: false,
-    providerKey: "custom-nvidia-deepseek-v3-2",
-    modelRef: "custom-nvidia-deepseek-v3-2/deepseek-ai/deepseek-r1",
-    keyType: "integrate",
-    providerConfig: {
-      baseUrl: "https://integrate.api.nvidia.com/v1",
-      api: "openai-completions",
-      models: [
-        {
-          id: "deepseek-ai/deepseek-r1",
-          name: "DeepSeek V3.2 (NVIDIA)",
-          reasoning: false,
-          input: ["text"],
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: 131_072,
-          maxTokens: 16_384,
-        },
-      ],
-    },
-  },
 ];
 
 export const DEFAULT_MODEL = MODEL_REGISTRY.find((m) => m.isDefault)!;
 
+// ---------------------------------------------------------------------------
+// Dynamic models — populated at runtime from configured providers
+// ---------------------------------------------------------------------------
+
+let dynamicModels: ModelEntry[] = [];
+
+export function getDynamicModels(): readonly ModelEntry[] {
+  return dynamicModels;
+}
+
+export function setDynamicModels(models: ModelEntry[]): void {
+  dynamicModels = models;
+}
+
+export function getAllModels(): ModelEntry[] {
+  const curated = CURATED_MODELS.map(curatedToModelEntry);
+  return [...curated, ...dynamicModels];
+}
+
 export function getModelById(id: string): ModelEntry | undefined {
-  return MODEL_REGISTRY.find((m) => m.id === id);
+  const curated = CURATED_MODELS.find((c) => c.id === id);
+  if (curated) return curatedToModelEntry(curated);
+  return dynamicModels.find((m) => m.id === id) ?? MODEL_REGISTRY.find((m) => m.id === id);
+}
+
+export function getModelByCuratedModelId(modelId: string): ModelEntry | undefined {
+  const curated = getCuratedByModelId(modelId);
+  if (curated) return curatedToModelEntry(curated);
+  return undefined;
+}
+
+/**
+ * Build a ModelEntry for a provider managed through the inference tab.
+ * These route through inference.local where the proxy injects credentials,
+ * so no client-side API key is needed.
+ */
+export function buildDynamicEntry(
+  providerName: string,
+  modelId: string,
+  providerType: string,
+): ModelEntry {
+  const curated = getCuratedByModelId(modelId);
+  if (curated) return curatedToModelEntry(curated);
+
+  const key = `dynamic-${providerName}`;
+  return {
+    id: key,
+    name: `${modelId} (via ${providerName})`,
+    isDefault: false,
+    providerKey: key,
+    modelRef: `${key}/${modelId}`,
+    keyType: "inference",
+    isDynamic: true,
+    providerConfig: {
+      baseUrl: "https://inference.local/v1",
+      api: "openai-completions",
+      models: [
+        {
+          id: modelId,
+          name: `${modelId} (${providerType})`,
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 128_000,
+          maxTokens: 8192,
+        },
+      ],
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
