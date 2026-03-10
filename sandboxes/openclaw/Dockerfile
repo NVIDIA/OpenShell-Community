@@ -3,13 +3,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# OpenClaw sandbox image for NemoClaw
+# OpenClaw sandbox image for OpenShell
 #
 # Builds on the community base sandbox and adds OpenClaw.
-# Build:  docker build -t nemoclaw-openclaw --build-arg BASE_IMAGE=nemoclaw-base .
-# Run:    nemoclaw sandbox create --from openclaw
+# Build:  docker build -t openshell-openclaw --build-arg BASE_IMAGE=openshell-base .
+# Run:    openshell sandbox create --from openclaw
 
-ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw-community/sandboxes/base:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest
 FROM ${BASE_IMAGE}
 
 USER root

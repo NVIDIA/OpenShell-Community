@@ -1,6 +1,6 @@
 # Base Sandbox
 
-The foundational sandbox image that all other NemoClaw Community sandbox images build from.
+The foundational sandbox image that all other OpenShell Community sandbox images build from.
 
 ## What's Included
 
@@ -29,7 +29,7 @@ The foundational sandbox image that all other NemoClaw Community sandbox images 
 ## Build
 
 ```bash
-docker build -t nemoclaw-base .
+docker build -t openshell-base .
 ```
 
 ## Building a Sandbox on Top
@@ -37,7 +37,7 @@ docker build -t nemoclaw-base .
 Other sandbox images should use this as their base:
 
 ```dockerfile
-ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw-community/sandboxes/base:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest
 FROM ${BASE_IMAGE}
 
 # Add your sandbox-specific layers here

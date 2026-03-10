@@ -3,12 +3,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# NemoClaw Community base sandbox image
+# OpenShell Community base sandbox image
 #
 # Provides the foundational system tools, users, and developer environment
 # that all other community sandbox images build on top of.
 #
-# Build:  docker build -t nemoclaw-base .
+# Build:  docker build -t openshell-base .
 
 # System base
 FROM ubuntu:24.04 AS system
