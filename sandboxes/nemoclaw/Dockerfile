@@ -11,7 +11,7 @@
 # Build:  docker build -t nemoclaw .
 # Run:    nemoclaw sandbox create --from nemoclaw --forward 18789 -- nemoclaw-start
 
-ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw-community/sandboxes/openclaw:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest
 FROM ${BASE_IMAGE}
 
 USER root

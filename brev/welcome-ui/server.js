@@ -32,7 +32,7 @@ const PORT = parseInt(process.env.PORT || "8081", 10);
 const ROOT = __dirname;
 const REPO_ROOT = process.env.REPO_ROOT || path.join(ROOT, "..", "..");
 const SANDBOX_DIR = path.join(REPO_ROOT, "sandboxes", "nemoclaw");
-const NEMOCLAW_IMAGE = "ghcr.io/nvidia/nemoclaw-community/sandboxes/nemoclaw:local";
+const NEMOCLAW_IMAGE = "ghcr.io/nvidia/openshell-community/sandboxes/nemoclaw:local";
 const POLICY_FILE = path.join(SANDBOX_DIR, "policy.yaml");
 
 const LOG_FILE = "/tmp/nemoclaw-sandbox-create.log";

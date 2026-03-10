@@ -126,7 +126,7 @@ The server operates in **two distinct modes** depending on sandbox readiness:
 | `LOG_FILE` | `/tmp/nemoclaw-sandbox-create.log` | Sandbox creation log (written by subprocess) |
 | `PROVIDER_CONFIG_CACHE` | `/tmp/nemoclaw-provider-config-cache.json` | Provider config values cache |
 | `OTHER_AGENTS_YAML` | `ROOT/other-agents.yaml` | YAML modal definition file |
-| `NEMOCLAW_IMAGE` | `ghcr.io/nvidia/nemoclaw-community/sandboxes/nemoclaw:local` | (Currently unused, commented out) |
+| `NEMOCLAW_IMAGE` | `ghcr.io/nvidia/openshell-community/sandboxes/nemoclaw:local` | (Currently unused, commented out) |
 | `SANDBOX_PORT` | `18789` | Port the sandbox listens on (localhost) |
 
 ### Hardcoded Constants
