@@ -38,6 +38,7 @@ const SANDBOX_START_CMD = process.env.SANDBOX_START_CMD || "nemoclaw-start";
 const SANDBOX_BASE_IMAGE =
   process.env.SANDBOX_BASE_IMAGE ||
   "ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest";
+const NEMOCLAW_IMAGE = (process.env.NEMOCLAW_IMAGE || "").trim();
 const POLICY_FILE = path.join(SANDBOX_DIR, "policy.yaml");
 
 const LOG_FILE = "/tmp/nemoclaw-sandbox-create.log";
@@ -264,6 +265,13 @@ const injectKeyState = {
   keyHash: null,
 };
 
+// Raw API key stored in memory so it can be passed to the sandbox at
+// creation time and forwarded to LiteLLM for inference.  Not persisted
+// to disk.
+let _nvidiaApiKey = process.env.NVIDIA_INFERENCE_API_KEY
+  || process.env.NVIDIA_INTEGRATE_API_KEY
+  || "";
+
 // ── Brev ID detection & URL building ───────────────────────────────────────
 
 function extractBrevId(host) {
@@ -286,7 +294,7 @@ function buildOpenclawUrl(token) {
   } else {
     url = `http://127.0.0.1:${PORT}/`;
   }
-  if (token) url += `?token=${token}`;
+  if (token) url += `#token=${token}`;
   return url;
 }
 
@@ -627,18 +635,26 @@ function runSandboxCreate() {
       const cmd = [
         CLI_BIN, "sandbox", "create",
         "--name", SANDBOX_NAME,
-        "--from", SANDBOX_DIR,
+        "--from", NEMOCLAW_IMAGE || SANDBOX_DIR,
         "--forward", "18789",
       ];
       if (policyPath) cmd.push("--policy", policyPath);
-      cmd.push(
-        "--",
-        "env",
-        `CHAT_UI_URL=${chatUiUrl}`,
-        SANDBOX_START_CMD
-      );
+      const envArgs = [`CHAT_UI_URL=${chatUiUrl}`];
+      const nvapiKey = _nvidiaApiKey
+        || process.env.NVIDIA_INFERENCE_API_KEY
+        || process.env.NVIDIA_INTEGRATE_API_KEY
+        || "";
+      if (nvapiKey) {
+        envArgs.push(`NVIDIA_INFERENCE_API_KEY=${nvapiKey}`);
+        envArgs.push(`NVIDIA_INTEGRATE_API_KEY=${nvapiKey}`);
+      }
+
+      cmd.push("--", "env", ...envArgs, SANDBOX_START_CMD);
 
       const cmdDisplay = cmd.slice(0, 8).join(" ") + " -- ...";
+      if (NEMOCLAW_IMAGE) {
+        logWelcome(`Using NeMoClaw image override: ${NEMOCLAW_IMAGE}`);
+      }
       logWelcome(`Running: ${cmdDisplay}`);
 
       const logFd = fs.openSync(LOG_FILE, "w");
@@ -786,6 +802,38 @@ function runInjectKey(key, keyHash) {
       injectKeyState.status = "error";
       injectKeyState.error = String(e);
     });
+}
+
+/**
+ * Forward the API key to the sandbox's LiteLLM instance via the
+ * policy-proxy's /api/litellm-key endpoint.  This triggers a config
+ * regeneration and LiteLLM restart with the new key.
+ */
+function forwardKeyToSandbox(key) {
+  const body = JSON.stringify({ apiKey: key });
+  const opts = {
+    hostname: "127.0.0.1",
+    port: SANDBOX_PORT,
+    path: "/api/litellm-key",
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+    },
+    timeout: 10000,
+  };
+  const req = http.request(opts, (res) => {
+    res.resume();
+    if (res.statusCode === 200) {
+      log("inject-key", "Forwarded API key to sandbox LiteLLM");
+    } else {
+      log("inject-key", `Sandbox LiteLLM key forward returned ${res.statusCode}`);
+    }
+  });
+  req.on("error", (err) => {
+    log("inject-key", `Failed to forward key to sandbox: ${err.message}`);
+  });
+  req.end(body);
 }
 
 // ── Provider CRUD ──────────────────────────────────────────────────────────
@@ -1271,8 +1319,16 @@ async function handleInjectKey(req, res) {
   injectKeyState.status = "injecting";
   injectKeyState.error = null;
   injectKeyState.keyHash = keyH;
+  _nvidiaApiKey = key;
 
   runInjectKey(key, keyH);
+
+  // If the sandbox is already running, forward the key to LiteLLM inside
+  // the sandbox so it can authenticate with upstream NVIDIA APIs.
+  if (sandboxState.status === "running") {
+    forwardKeyToSandbox(key);
+  }
+
   return jsonResponse(res, 202, { ok: true, started: true });
 }
 
@@ -1561,6 +1617,7 @@ function _resetForTesting() {
   detectedBrevId = "";
   _brevEnvId = "";
   renderedIndex = null;
+  _nvidiaApiKey = "";
 }
 
 function _setMocksForTesting(mocks) {

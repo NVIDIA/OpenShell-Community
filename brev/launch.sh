@@ -32,6 +32,7 @@ CLI_RETRY_COUNT="${CLI_RETRY_COUNT:-5}"
 CLI_RETRY_DELAY_SECS="${CLI_RETRY_DELAY_SECS:-3}"
 GHCR_LOGIN="${GHCR_LOGIN:-auto}"
 GHCR_USER="${GHCR_USER:-}"
+NEMOCLAW_IMAGE="${NEMOCLAW_IMAGE:-ghcr.io/nvidia/openshell-community/sandboxes/nemoclaw:latest}"
 
 mkdir -p "$(dirname "$LAUNCH_LOG")"
 touch "$LAUNCH_LOG"
@@ -250,6 +251,47 @@ docker_login_ghcr_if_needed() {
   if [[ "$login_failed" -ne 0 ]]; then
     log "One or more GHCR logins failed. Continuing, but private image pulls may fail."
   fi
+}
+
+should_build_nemoclaw_image() {
+  [[ -n "$COMMUNITY_REF" && "$COMMUNITY_REF" != "main" ]]
+}
+
+build_nemoclaw_image_if_needed() {
+  local docker_cmd=()
+  local image_context="$REPO_ROOT/sandboxes/nemoclaw"
+  local dockerfile_path="$image_context/Dockerfile"
+
+  if ! should_build_nemoclaw_image; then
+    log "Skipping local NeMoClaw image build (COMMUNITY_REF=${COMMUNITY_REF:-<unset>})."
+    return
+  fi
+
+  if [[ ! -f "$dockerfile_path" ]]; then
+    log "NeMoClaw Dockerfile not found: $dockerfile_path"
+    exit 1
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    docker_cmd=(docker)
+  elif command -v sudo >/dev/null 2>&1; then
+    docker_cmd=(sudo docker)
+  else
+    log "Docker is required to build the NeMoClaw sandbox image."
+    exit 1
+  fi
+
+  log "Building local NeMoClaw image for non-main ref '$COMMUNITY_REF': $NEMOCLAW_IMAGE"
+  if ! "${docker_cmd[@]}" build \
+    --pull \
+    --tag "$NEMOCLAW_IMAGE" \
+    --file "$dockerfile_path" \
+    "$image_context"; then
+    log "Local NeMoClaw image build failed."
+    exit 1
+  fi
+
+  log "Local NeMoClaw image ready: $NEMOCLAW_IMAGE"
 }
 
 checkout_repo_ref() {
@@ -518,7 +560,12 @@ start_welcome_ui() {
   log "Starting welcome UI in background..."
   log "Welcome UI log: $WELCOME_UI_LOG"
 
-  nohup env PORT="$PORT" REPO_ROOT="$REPO_ROOT" CLI_BIN="$CLI_BIN" node server.js >> "$WELCOME_UI_LOG" 2>&1 &
+  nohup env \
+    PORT="$PORT" \
+    REPO_ROOT="$REPO_ROOT" \
+    CLI_BIN="$CLI_BIN" \
+    NEMOCLAW_IMAGE="$NEMOCLAW_IMAGE" \
+    node server.js >> "$WELCOME_UI_LOG" 2>&1 &
   WELCOME_UI_PID=$!
   export WELCOME_UI_PID
   log "Welcome UI PID: $WELCOME_UI_PID"
@@ -544,6 +591,8 @@ main() {
   ensure_cli_compat_aliases
   step "Authenticating registries"
   docker_login_ghcr_if_needed
+  step "Preparing NeMoClaw image"
+  build_nemoclaw_image_if_needed
   step "Ensuring Node.js"
   ensure_node
 
