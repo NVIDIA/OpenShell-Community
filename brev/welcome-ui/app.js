@@ -120,6 +120,8 @@
   let injectInFlight = false;
   let injectTimer = null;
   let lastSubmittedKey = "";
+  let keyInjectError = "";
+  let installFailed = false;
 
   function stopPolling() {
     if (pollTimer) {
@@ -132,6 +134,7 @@
     if (key === lastSubmittedKey) return;
     lastSubmittedKey = key;
     keyInjected = false;
+    keyInjectError = "";
     injectInFlight = true;
     updateButtonState();
     try {
@@ -169,6 +172,9 @@
     if (keyRaw.length === 0) {
       keyHint.textContent = "";
       keyHint.className = "form-field__hint";
+    } else if (keyInjectError) {
+      keyHint.textContent = keyInjectError;
+      keyHint.className = "form-field__hint form-field__hint--warn";
     } else if (keyValid) {
       keyHint.textContent = "Valid key format";
       keyHint.className = "form-field__hint form-field__hint--ok";
@@ -192,12 +198,18 @@
       btnSpinner.hidden = true;
       btnSpinner.style.display = "none";
       btnLaunchLabel.textContent = "Open OpenShell";
-    } else if (sandboxReady && keyValid && !keyInjected) {
+    } else if (sandboxReady && keyValid && !keyInjected && (injectInFlight || !keyInjectError)) {
       btnLaunch.disabled = true;
       btnLaunch.classList.remove("btn--ready");
       btnSpinner.hidden = false;
       btnSpinner.style.display = "";
       btnLaunchLabel.textContent = "Configuring API key\u2026";
+    } else if (sandboxReady && keyValid && !keyInjected) {
+      btnLaunch.disabled = true;
+      btnLaunch.classList.remove("btn--ready");
+      btnSpinner.hidden = true;
+      btnSpinner.style.display = "none";
+      btnLaunchLabel.textContent = "Update API key to retry";
     } else if (!sandboxReady && keyValid) {
       btnLaunch.disabled = true;
       btnLaunch.classList.remove("btn--ready");
@@ -268,6 +280,12 @@
         if (!injectInFlight) {
           keyInjected = !!data.key_injected;
         }
+        keyInjectError = data.key_inject_error || "";
+        if (keyInjectError) {
+          injectInFlight = false;
+          keyInjected = false;
+          lastSubmittedKey = "";
+        }
 
         if (data.status === "running") {
           sandboxReady = true;
@@ -284,6 +302,7 @@
         } else if (data.status === "error") {
           stopPolling();
           installTriggered = false;
+          installFailed = true;
           showError(data.error || "Sandbox creation failed");
         } else {
           updateButtonState();
@@ -308,6 +327,8 @@
     sandboxUrl = null;
     installTriggered = false;
     keyInjected = false;
+    keyInjectError = "";
+    installFailed = false;
     lastSubmittedKey = "";
     stopPolling();
 
@@ -391,8 +412,13 @@
 
   cardOpenclaw.addEventListener("click", () => {
     showOverlay(overlayInstall);
-    showMainView();
-    if (!installTriggered) {
+    if (installFailed) {
+      stepError.hidden = false;
+      installMain.hidden = true;
+    } else {
+      showMainView();
+    }
+    if (!installTriggered && !installFailed) {
       triggerInstall();
     }
     apiKeyInput.focus();
