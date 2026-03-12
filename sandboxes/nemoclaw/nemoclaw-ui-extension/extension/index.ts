@@ -15,7 +15,7 @@ import { injectButton } from "./deploy-modal.ts";
 import { injectNavGroup, activateNemoPage, watchOpenClawNavClicks } from "./nav-group.ts";
 import { injectModelSelector, watchChatCompose } from "./model-selector.ts";
 import { ingestKeysFromUrl, DEFAULT_MODEL, resolveApiKey, isKeyConfigured } from "./model-registry.ts";
-import { waitForClient, waitForReconnect, patchConfig } from "./gateway-bridge.ts";
+import { waitForReconnect } from "./gateway-bridge.ts";
 import { syncKeysToProviders } from "./api-keys-page.ts";
 
 function inject(): boolean {
@@ -65,50 +65,11 @@ function revealApp(): void {
   }
 }
 
-/**
- * Read the live OpenClaw config, find the active model.primary ref, and
- * patch streaming: true for it.  For proxy-managed models the model.primary
- * never changes after onboard, so enabling it once covers every proxy model
- * switch.
- */
-async function enableStreamingForActiveModel(): Promise<void> {
-  const client = await waitForClient();
-  const snapshot = await client.request<Record<string, unknown>>("config.get", {});
-
-  const agents = snapshot?.agents as Record<string, unknown> | undefined;
-  const defaults = agents?.defaults as Record<string, unknown> | undefined;
-  const model = defaults?.model as Record<string, unknown> | undefined;
-  const primary = model?.primary as string | undefined;
-
-  if (!primary) {
-    console.warn("[NeMoClaw] Could not determine active model primary from config");
-    return;
-  }
-
-  const models = defaults?.models as Record<string, Record<string, unknown>> | undefined;
-  if (models?.[primary]?.streaming === true) return;
-
-  await patchConfig({
-    agents: {
-      defaults: {
-        models: {
-          [primary]: { streaming: true },
-        },
-      },
-    },
-  });
-}
-
 function bootstrap() {
   showConnectOverlay();
 
   waitForReconnect(30_000)
-    .then(() => {
-      revealApp();
-      enableStreamingForActiveModel().catch((err) =>
-        console.warn("[NeMoClaw] Failed to enable streaming:", err),
-      );
-    })
+    .then(revealApp)
     .catch(revealApp);
 
   const keysIngested = ingestKeysFromUrl();

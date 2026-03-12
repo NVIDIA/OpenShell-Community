@@ -16,6 +16,13 @@ FROM ${BASE_IMAGE}
 
 USER root
 
+ENV NO_PROXY=127.0.0.1,localhost,::1
+ENV no_proxy=127.0.0.1,localhost,::1
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends jq && \
+    rm -rf /var/lib/apt/lists/*
+
 # Override the startup script with our version (adds runtime API key injection)
 COPY nemoclaw-start.sh /usr/local/bin/nemoclaw-start
 RUN chmod +x /usr/local/bin/nemoclaw-start
@@ -26,6 +33,11 @@ RUN chmod +x /usr/local/bin/nemoclaw-start
 COPY policy-proxy.js /usr/local/lib/policy-proxy.js
 COPY proto/ /usr/local/lib/nemoclaw-proto/
 RUN npm install -g @grpc/grpc-js @grpc/proto-loader js-yaml
+
+# Install LiteLLM proxy for streaming-capable local LLM inference routing.
+# LiteLLM handles SSE streaming natively, bypassing the sandbox proxy's
+# inference interception path which buffers responses and times out.
+RUN python3 -m pip install --no-cache-dir --break-system-packages 'litellm[proxy]'
 
 # Fix @hono/node-server authorization bypass (GHSA-wc8c-qw6v-h7f6)
 RUN npm install -g @hono/node-server@1.19.11

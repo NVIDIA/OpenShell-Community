@@ -118,8 +118,8 @@ export interface ModelEntry {
 }
 
 // ---------------------------------------------------------------------------
-// Curated models — hardcoded presets routed through inference.local.
-// The NemoClaw proxy injects credentials based on the providerName.
+// Curated models — hardcoded presets routed through the local LiteLLM proxy.
+// LiteLLM handles upstream credential injection and SSE streaming natively.
 // ---------------------------------------------------------------------------
 
 export interface CuratedModel {
@@ -179,7 +179,7 @@ export function curatedToModelEntry(c: CuratedModel): ModelEntry {
     keyType: "inference",
     isDynamic: true,
     providerConfig: {
-      baseUrl: "https://inference.local/v1",
+      baseUrl: "http://127.0.0.1:4000/v1",
       api: "openai-completions",
       models: [
         {
@@ -215,7 +215,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     modelRef: `${DEFAULT_PROVIDER_KEY}/moonshotai/kimi-k2.5`,
     keyType: "inference",
     providerConfig: {
-      baseUrl: "https://inference.local/v1",
+      baseUrl: "http://127.0.0.1:4000/v1",
       api: "openai-completions",
       models: [
         {
@@ -267,8 +267,8 @@ export function getModelByCuratedModelId(modelId: string): ModelEntry | undefine
 
 /**
  * Build a ModelEntry for a provider managed through the inference tab.
- * These route through inference.local where the proxy injects credentials,
- * so no client-side API key is needed.
+ * These route through the local LiteLLM proxy which handles credentials
+ * and streaming, so no client-side API key is needed.
  */
 export function buildDynamicEntry(
   providerName: string,
@@ -288,7 +288,7 @@ export function buildDynamicEntry(
     keyType: "inference",
     isDynamic: true,
     providerConfig: {
-      baseUrl: "https://inference.local/v1",
+      baseUrl: "http://127.0.0.1:4000/v1",
       api: "openai-completions",
       models: [
         {
@@ -328,7 +328,7 @@ export function buildQuickSelectEntry(
     keyType: "inference",
     isDynamic: true,
     providerConfig: {
-      baseUrl: "https://inference.local/v1",
+      baseUrl: "http://127.0.0.1:4000/v1",
       api: "openai-completions",
       models: [
         {

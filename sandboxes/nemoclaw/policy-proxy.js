@@ -419,14 +419,217 @@ function syncAndRespond(yamlBody, res, t0) {
 }
 
 // ---------------------------------------------------------------------------
+// LiteLLM config manager
+//
+// When the user switches models via the UI, the extension POSTs to
+// /api/cluster-inference.  After forwarding to the gateway we regenerate
+// the LiteLLM config and restart the proxy so the new model takes effect.
+// ---------------------------------------------------------------------------
+
+const { execFile } = require("child_process");
+
+const LITELLM_PORT = 4000;
+const LITELLM_CONFIG_PATH = "/tmp/litellm_config.yaml";
+const LITELLM_LOG_PATH = "/tmp/litellm.log";
+
+const PROVIDER_MAP = {
+  "nvidia-endpoints": {
+    litellmPrefix: "nvidia_nim",
+    apiBase: "https://integrate.api.nvidia.com/v1",
+    apiKeyEnv: "NVIDIA_NIM_API_KEY",
+  },
+  "nvidia-inference": {
+    litellmPrefix: "nvidia_nim",
+    apiBase: "https://inference-api.nvidia.com/v1",
+    apiKeyEnv: "NVIDIA_NIM_API_KEY",
+  },
+};
+
+let litellmPid = null;
+
+function generateLitellmConfig(providerName, modelId) {
+  const provider = PROVIDER_MAP[providerName] || PROVIDER_MAP["nvidia-endpoints"];
+  const fullModel = `${provider.litellmPrefix}/${modelId}`;
+
+  const config = [
+    "model_list:",
+    '  - model_name: "*"',
+    "    litellm_params:",
+    `      model: "${fullModel}"`,
+    `      api_key: os.environ/${provider.apiKeyEnv}`,
+    `      api_base: "${provider.apiBase}"`,
+    "general_settings:",
+    "  master_key: sk-nemoclaw-local",
+    "litellm_settings:",
+    "  request_timeout: 600",
+    "  drop_params: true",
+    "  num_retries: 0",
+    "",
+  ].join("\n");
+
+  fs.writeFileSync(LITELLM_CONFIG_PATH, config, "utf8");
+  console.log(`[litellm-mgr] Config written: model=${fullModel} api_base=${provider.apiBase}`);
+}
+
+function restartLitellm() {
+  return new Promise((resolve) => {
+    if (litellmPid) {
+      try {
+        process.kill(litellmPid, "SIGTERM");
+        console.log(`[litellm-mgr] Sent SIGTERM to old LiteLLM (pid ${litellmPid})`);
+      } catch (e) {
+        // Process may have already exited.
+      }
+      litellmPid = null;
+    }
+
+    // Brief grace period for the old process to release the port.
+    setTimeout(() => {
+      const logFd = fs.openSync(LITELLM_LOG_PATH, "a");
+      const child = execFile(
+        "litellm",
+        ["--config", LITELLM_CONFIG_PATH, "--port", String(LITELLM_PORT), "--host", "127.0.0.1"],
+        { stdio: ["ignore", logFd, logFd], detached: true }
+      );
+      child.unref();
+      litellmPid = child.pid;
+      console.log(`[litellm-mgr] Started new LiteLLM (pid ${litellmPid})`);
+      fs.closeSync(logFd);
+
+      // Wait for the health endpoint to become available.
+      let attempts = 0;
+      const maxAttempts = 20;
+      const poll = setInterval(() => {
+        attempts++;
+        const healthReq = http.get(`http://127.0.0.1:${LITELLM_PORT}/health`, (healthRes) => {
+          if (healthRes.statusCode === 200) {
+            clearInterval(poll);
+            console.log(`[litellm-mgr] LiteLLM ready after ${attempts * 500}ms`);
+            resolve(true);
+          }
+          healthRes.resume();
+        });
+        healthReq.on("error", () => {});
+        healthReq.setTimeout(400, () => healthReq.destroy());
+        if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          console.warn("[litellm-mgr] LiteLLM did not become ready within 10s");
+          resolve(false);
+        }
+      }, 500);
+    }, 500);
+  });
+}
+
+// Discover existing LiteLLM pid at startup so we can manage restarts.
+try {
+  const { execSync } = require("child_process");
+  const pidStr = execSync(`pgrep -f "litellm.*--port ${LITELLM_PORT}" 2>/dev/null || true`, { encoding: "utf8" }).trim();
+  if (pidStr) {
+    litellmPid = parseInt(pidStr.split("\n")[0], 10);
+    console.log(`[litellm-mgr] Discovered existing LiteLLM pid: ${litellmPid}`);
+  }
+} catch (e) {}
+
+// ---------------------------------------------------------------------------
+// /api/cluster-inference intercept
+// ---------------------------------------------------------------------------
+
+function handleClusterInferencePost(clientReq, clientRes) {
+  const chunks = [];
+  clientReq.on("data", (chunk) => chunks.push(chunk));
+  clientReq.on("end", () => {
+    const rawBody = Buffer.concat(chunks);
+    let payload;
+    try {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    } catch (e) {
+      clientRes.writeHead(400, { "Content-Type": "application/json" });
+      clientRes.end(JSON.stringify({ error: "invalid JSON" }));
+      return;
+    }
+
+    // Forward the original request to the upstream gateway first.
+    const opts = {
+      hostname: UPSTREAM_HOST,
+      port: UPSTREAM_PORT,
+      path: clientReq.url,
+      method: clientReq.method,
+      headers: { ...clientReq.headers, "content-length": rawBody.length },
+    };
+
+    const upstream = http.request(opts, (upstreamRes) => {
+      const upChunks = [];
+      upstreamRes.on("data", (c) => upChunks.push(c));
+      upstreamRes.on("end", () => {
+        const upBody = Buffer.concat(upChunks);
+        clientRes.writeHead(upstreamRes.statusCode, upstreamRes.headers);
+        clientRes.end(upBody);
+
+        // On success, regenerate LiteLLM config and restart.
+        if (upstreamRes.statusCode >= 200 && upstreamRes.statusCode < 300) {
+          const providerName = payload.providerName || "nvidia-endpoints";
+          const modelId = payload.modelId || payload.model || "";
+          if (modelId) {
+            console.log(`[litellm-mgr] Model switch detected: provider=${providerName} model=${modelId}`);
+            generateLitellmConfig(providerName, modelId);
+            restartLitellm().then((ready) => {
+              console.log(`[litellm-mgr] Restart complete, ready=${ready}`);
+            });
+          }
+        }
+      });
+    });
+
+    upstream.on("error", (err) => {
+      console.error("[litellm-mgr] upstream error on cluster-inference forward:", err.message);
+      if (!clientRes.headersSent) {
+        clientRes.writeHead(502, { "Content-Type": "application/json" });
+      }
+      clientRes.end(JSON.stringify({ error: "upstream unavailable" }));
+    });
+
+    upstream.end(rawBody);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// /api/litellm-health handler
+// ---------------------------------------------------------------------------
+
+function handleLitellmHealth(req, res) {
+  const healthReq = http.get(`http://127.0.0.1:${LITELLM_PORT}/health`, (healthRes) => {
+    const chunks = [];
+    healthRes.on("data", (c) => chunks.push(c));
+    healthRes.on("end", () => {
+      res.writeHead(healthRes.statusCode, { "Content-Type": "application/json" });
+      res.end(Buffer.concat(chunks));
+    });
+  });
+  healthReq.on("error", (err) => {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "litellm unreachable", detail: err.message, pid: litellmPid }));
+  });
+  healthReq.setTimeout(3000, () => {
+    healthReq.destroy();
+    res.writeHead(504, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "litellm health check timed out", pid: litellmPid }));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // HTTP server
 // ---------------------------------------------------------------------------
 
+function setCorsHeaders(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === "/api/policy") {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    setCorsHeaders(res);
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
@@ -438,6 +641,23 @@ const server = http.createServer((req, res) => {
     } else {
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "method not allowed" }));
+    }
+    return;
+  }
+
+  if (req.url === "/api/cluster-inference" && req.method === "POST") {
+    setCorsHeaders(res);
+    handleClusterInferencePost(req, res);
+    return;
+  }
+
+  if (req.url === "/api/litellm-health") {
+    setCorsHeaders(res);
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+    } else {
+      handleLitellmHealth(req, res);
     }
     return;
   }
