@@ -66,6 +66,70 @@ if [ -f "$BUNDLE" ]; then
 fi
 
 # --------------------------------------------------------------------------
+# LiteLLM streaming inference proxy
+#
+# LiteLLM runs on localhost:4000 and provides streaming-capable inference
+# routing.  This bypasses the sandbox proxy's inference.local interception
+# path which buffers entire responses and has a 60s hard timeout.
+# --------------------------------------------------------------------------
+LITELLM_PORT=4000
+LITELLM_CONFIG="/tmp/litellm_config.yaml"
+LITELLM_LOG="/tmp/litellm.log"
+
+export NVIDIA_NIM_API_KEY="${NVIDIA_INFERENCE_API_KEY:-${NVIDIA_INTEGRATE_API_KEY:-not-set}}"
+
+_DEFAULT_MODEL="moonshotai/kimi-k2.5"
+_DEFAULT_PROVIDER="nvidia-endpoints"
+
+generate_litellm_config() {
+  local model_id="${1:-$_DEFAULT_MODEL}"
+  local provider="${2:-$_DEFAULT_PROVIDER}"
+  local api_base=""
+  local litellm_prefix="nvidia_nim"
+
+  case "$provider" in
+    nvidia-endpoints)
+      api_base="https://integrate.api.nvidia.com/v1" ;;
+    nvidia-inference)
+      api_base="https://inference-api.nvidia.com/v1" ;;
+    *)
+      api_base="https://integrate.api.nvidia.com/v1" ;;
+  esac
+
+  cat > "$LITELLM_CONFIG" <<LITELLM_EOF
+model_list:
+  - model_name: "*"
+    litellm_params:
+      model: "${litellm_prefix}/${model_id}"
+      api_key: os.environ/NVIDIA_NIM_API_KEY
+      api_base: "${api_base}"
+general_settings:
+  master_key: sk-nemoclaw-local
+litellm_settings:
+  request_timeout: 600
+  drop_params: true
+  num_retries: 0
+LITELLM_EOF
+  echo "[litellm] Config written: model=${litellm_prefix}/${model_id} api_base=${api_base}"
+}
+
+generate_litellm_config "$_DEFAULT_MODEL" "$_DEFAULT_PROVIDER"
+
+nohup litellm --config "$LITELLM_CONFIG" --port "$LITELLM_PORT" --host 127.0.0.1 \
+  >> "$LITELLM_LOG" 2>&1 &
+echo "[litellm] Starting on 127.0.0.1:${LITELLM_PORT} (pid $!)"
+
+# Wait for LiteLLM to accept connections before proceeding.
+_litellm_deadline=$(($(date +%s) + 30))
+while ! curl -sf "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null 2>&1; do
+  if [ "$(date +%s)" -ge "$_litellm_deadline" ]; then
+    echo "[litellm] WARNING: LiteLLM did not become ready within 30s. Continuing anyway."
+    break
+  fi
+  sleep 0.5
+done
+
+# --------------------------------------------------------------------------
 # Onboard and start the gateway
 # --------------------------------------------------------------------------
 export NVIDIA_API_KEY="${NVIDIA_INFERENCE_API_KEY:- }"
@@ -78,9 +142,9 @@ openclaw onboard \
   --skip-skills \
   --skip-health \
   --auth-choice custom-api-key \
-  --custom-base-url "https://inference.local/v1" \
-  --custom-model-id "-" \
-  --custom-api-key "$_ONBOARD_KEY" \
+  --custom-base-url "http://127.0.0.1:${LITELLM_PORT}/v1" \
+  --custom-model-id "$_DEFAULT_MODEL" \
+  --custom-api-key "sk-nemoclaw-local" \
   --secret-input-mode plaintext \
   --custom-compatibility openai \
   --gateway-port 18788 \

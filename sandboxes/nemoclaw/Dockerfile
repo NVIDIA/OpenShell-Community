@@ -27,6 +27,11 @@ COPY policy-proxy.js /usr/local/lib/policy-proxy.js
 COPY proto/ /usr/local/lib/nemoclaw-proto/
 RUN npm install -g @grpc/grpc-js @grpc/proto-loader js-yaml
 
+# Install LiteLLM proxy for streaming-capable local LLM inference routing.
+# LiteLLM handles SSE streaming natively, bypassing the sandbox proxy's
+# inference interception path which buffers responses and times out.
+RUN python3 -m pip install --no-cache-dir --break-system-packages 'litellm[proxy]'
+
 # Allow the sandbox user to read the default policy (the startup script
 # copies it to a writable location; this chown covers non-Landlock envs)
 RUN chown -R sandbox:sandbox /etc/navigator

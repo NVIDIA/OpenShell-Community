@@ -2,11 +2,11 @@
  * NeMoClaw DevX — Model Selector
  *
  * Dropdown injected into the chat compose area that lets users pick a
- * model.  For models routed through inference.local (curated + dynamic),
- * switching only updates the NemoClaw cluster-inference route — no
- * OpenClaw config.patch is needed because the NemoClaw proxy rewrites
- * the model field in every request body.  This avoids the gateway
- * disconnect that config.patch causes.
+ * model.  For models routed through the local LiteLLM proxy (curated +
+ * dynamic), switching only updates the NemoClaw cluster-inference route
+ * — no OpenClaw config.patch is needed because the LiteLLM proxy
+ * handles model routing and streaming natively.  This avoids the
+ * gateway disconnect that config.patch causes.
  *
  * Models are fetched dynamically from the NemoClaw runtime (providers
  * and active route configured in the Inference tab).
@@ -264,14 +264,14 @@ function dismissTransitionBanner(): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true if the model routes through inference.local, meaning the
- * NemoClaw proxy manages credential injection and model rewriting.
+ * Returns true if the model routes through the local LiteLLM proxy,
+ * meaning credential injection and streaming are handled server-side.
  * For these models we only need to update the cluster-inference route —
  * no OpenClaw config.patch (and therefore no gateway disconnect).
  */
 function isProxyManaged(entry: ModelEntry): boolean {
   return entry.isDynamic === true ||
-    entry.providerConfig.baseUrl === "https://inference.local/v1";
+    entry.providerConfig.baseUrl === "http://127.0.0.1:4000/v1";
 }
 
 async function applyModelSelection(
@@ -295,10 +295,9 @@ async function applyModelSelection(
 
   try {
     if (isProxyManaged(entry)) {
-      // Proxy-managed models route through inference.local.  We update the
-      // NemoClaw cluster-inference route (no OpenClaw config.patch, no
-      // gateway disconnect).  The sandbox polls every ~30s for route
-      // updates, so we show an honest propagation countdown.
+      // Proxy-managed models route through the local LiteLLM proxy.  We
+      // update the cluster-inference route and LiteLLM is restarted with the
+      // new model config (no OpenClaw config.patch, no gateway disconnect).
       const curated = getCuratedByModelId(entry.providerConfig.models[0]?.id || "");
       const provName = curated?.providerName || entry.providerKey.replace(/^dynamic-/, "");
       const modelId = entry.providerConfig.models[0]?.id || "";
