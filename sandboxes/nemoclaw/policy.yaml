@@ -82,10 +82,13 @@ network_policies:
     name: nvidia
     endpoints:
       - { host: integrate.api.nvidia.com, port: 443 }
+      - { host: inference-api.nvidia.com, port: 443 }
     binaries:
       - { path: /usr/bin/curl }
       - { path: /bin/bash }
       - { path: /usr/local/bin/opencode }
+      - { path: /usr/bin/python3 }
+      - { path: /usr/bin/python3.12 }
   nvidia_web:
     name: nvidia_web
     endpoints:

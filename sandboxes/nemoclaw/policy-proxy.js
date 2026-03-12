@@ -431,32 +431,44 @@ const { execFile } = require("child_process");
 const LITELLM_PORT = 4000;
 const LITELLM_CONFIG_PATH = "/tmp/litellm_config.yaml";
 const LITELLM_LOG_PATH = "/tmp/litellm.log";
+const LITELLM_KEY_FILE = "/tmp/litellm_api_key";
 
 const PROVIDER_MAP = {
   "nvidia-endpoints": {
     litellmPrefix: "nvidia_nim",
     apiBase: "https://integrate.api.nvidia.com/v1",
-    apiKeyEnv: "NVIDIA_NIM_API_KEY",
   },
   "nvidia-inference": {
     litellmPrefix: "nvidia_nim",
     apiBase: "https://inference-api.nvidia.com/v1",
-    apiKeyEnv: "NVIDIA_NIM_API_KEY",
   },
 };
 
 let litellmPid = null;
 
+function readApiKey() {
+  try {
+    const key = fs.readFileSync(LITELLM_KEY_FILE, "utf8").trim();
+    if (key) return key;
+  } catch (e) {}
+  return process.env.NVIDIA_NIM_API_KEY || "";
+}
+
+function writeApiKey(key) {
+  fs.writeFileSync(LITELLM_KEY_FILE, key, { mode: 0o600 });
+}
+
 function generateLitellmConfig(providerName, modelId) {
   const provider = PROVIDER_MAP[providerName] || PROVIDER_MAP["nvidia-endpoints"];
   const fullModel = `${provider.litellmPrefix}/${modelId}`;
+  const apiKey = readApiKey() || "key-not-yet-configured";
 
   const config = [
     "model_list:",
     '  - model_name: "*"',
     "    litellm_params:",
     `      model: "${fullModel}"`,
-    `      api_key: os.environ/${provider.apiKeyEnv}`,
+    `      api_key: "${apiKey}"`,
     `      api_base: "${provider.apiBase}"`,
     "general_settings:",
     "  master_key: sk-nemoclaw-local",
@@ -468,7 +480,8 @@ function generateLitellmConfig(providerName, modelId) {
   ].join("\n");
 
   fs.writeFileSync(LITELLM_CONFIG_PATH, config, "utf8");
-  console.log(`[litellm-mgr] Config written: model=${fullModel} api_base=${provider.apiBase}`);
+  const keyStatus = apiKey === "key-not-yet-configured" ? "missing" : "present";
+  console.log(`[litellm-mgr] Config written: model=${fullModel} api_base=${provider.apiBase} key=${keyStatus}`);
 }
 
 function restartLitellm() {
@@ -486,37 +499,38 @@ function restartLitellm() {
     // Brief grace period for the old process to release the port.
     setTimeout(() => {
       const logFd = fs.openSync(LITELLM_LOG_PATH, "a");
+      const env = { ...process.env, LITELLM_LOCAL_MODEL_COST_MAP: "True" };
       const child = execFile(
         "litellm",
         ["--config", LITELLM_CONFIG_PATH, "--port", String(LITELLM_PORT), "--host", "127.0.0.1"],
-        { stdio: ["ignore", logFd, logFd], detached: true }
+        { stdio: ["ignore", logFd, logFd], detached: true, env }
       );
       child.unref();
       litellmPid = child.pid;
       console.log(`[litellm-mgr] Started new LiteLLM (pid ${litellmPid})`);
       fs.closeSync(logFd);
 
-      // Wait for the health endpoint to become available.
+      // Wait for the liveness endpoint (no model connectivity checks).
       let attempts = 0;
-      const maxAttempts = 20;
+      const maxAttempts = 60;
       const poll = setInterval(() => {
         attempts++;
-        const healthReq = http.get(`http://127.0.0.1:${LITELLM_PORT}/health`, (healthRes) => {
+        const healthReq = http.get(`http://127.0.0.1:${LITELLM_PORT}/health/liveliness`, (healthRes) => {
           if (healthRes.statusCode === 200) {
             clearInterval(poll);
-            console.log(`[litellm-mgr] LiteLLM ready after ${attempts * 500}ms`);
+            console.log(`[litellm-mgr] LiteLLM ready after ${attempts}s`);
             resolve(true);
           }
           healthRes.resume();
         });
         healthReq.on("error", () => {});
-        healthReq.setTimeout(400, () => healthReq.destroy());
+        healthReq.setTimeout(800, () => healthReq.destroy());
         if (attempts >= maxAttempts) {
           clearInterval(poll);
-          console.warn("[litellm-mgr] LiteLLM did not become ready within 10s");
+          console.warn("[litellm-mgr] LiteLLM did not become ready within 60s");
           resolve(false);
         }
-      }, 500);
+      }, 1000);
     }, 500);
   });
 }
@@ -594,11 +608,65 @@ function handleClusterInferencePost(clientReq, clientRes) {
 }
 
 // ---------------------------------------------------------------------------
+// /api/litellm-key handler — accepts an API key update from the welcome UI
+// ---------------------------------------------------------------------------
+
+function handleLitellmKey(req, res) {
+  const chunks = [];
+  req.on("data", (c) => chunks.push(c));
+  req.on("end", () => {
+    let body;
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "invalid JSON" }));
+      return;
+    }
+
+    const apiKey = (body.apiKey || "").trim();
+    if (!apiKey) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "missing apiKey" }));
+      return;
+    }
+
+    console.log(`[litellm-mgr] API key update received (${apiKey.length} chars)`);
+    writeApiKey(apiKey);
+
+    // Read the current config to extract the model/provider, then regenerate
+    // with the new key.
+    let currentModel = "moonshotai/kimi-k2.5";
+    let currentProvider = "nvidia-endpoints";
+    try {
+      const cfg = fs.readFileSync(LITELLM_CONFIG_PATH, "utf8");
+      const modelMatch = cfg.match(/model:\s*"[^/]+\/(.+?)"/);
+      if (modelMatch) currentModel = modelMatch[1];
+      const baseMatch = cfg.match(/api_base:\s*"(.+?)"/);
+      if (baseMatch) {
+        const base = baseMatch[1];
+        for (const [name, p] of Object.entries(PROVIDER_MAP)) {
+          if (p.apiBase === base) { currentProvider = name; break; }
+        }
+      }
+    } catch (e) {}
+
+    generateLitellmConfig(currentProvider, currentModel);
+    restartLitellm().then((ready) => {
+      console.log(`[litellm-mgr] Restarted with new key, ready=${ready}`);
+    });
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // /api/litellm-health handler
 // ---------------------------------------------------------------------------
 
 function handleLitellmHealth(req, res) {
-  const healthReq = http.get(`http://127.0.0.1:${LITELLM_PORT}/health`, (healthRes) => {
+  const healthReq = http.get(`http://127.0.0.1:${LITELLM_PORT}/health/liveliness`, (healthRes) => {
     const chunks = [];
     healthRes.on("data", (c) => chunks.push(c));
     healthRes.on("end", () => {
@@ -648,6 +716,12 @@ const server = http.createServer((req, res) => {
   if (req.url === "/api/cluster-inference" && req.method === "POST") {
     setCorsHeaders(res);
     handleClusterInferencePost(req, res);
+    return;
+  }
+
+  if (req.url === "/api/litellm-key" && req.method === "POST") {
+    setCorsHeaders(res);
+    handleLitellmKey(req, res);
     return;
   }
 

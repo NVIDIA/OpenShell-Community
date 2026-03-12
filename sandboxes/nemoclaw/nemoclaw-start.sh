@@ -76,7 +76,22 @@ LITELLM_PORT=4000
 LITELLM_CONFIG="/tmp/litellm_config.yaml"
 LITELLM_LOG="/tmp/litellm.log"
 
-export NVIDIA_NIM_API_KEY="${NVIDIA_INFERENCE_API_KEY:-${NVIDIA_INTEGRATE_API_KEY:-not-set}}"
+NVIDIA_NIM_API_KEY="${NVIDIA_INFERENCE_API_KEY:-${NVIDIA_INTEGRATE_API_KEY:-}}"
+export NVIDIA_NIM_API_KEY
+
+# Persist the API key to a well-known file so the policy-proxy can read
+# it later when regenerating the LiteLLM config (e.g. on model switch or
+# late key injection from the welcome UI).
+LITELLM_KEY_FILE="/tmp/litellm_api_key"
+if [ -n "$NVIDIA_NIM_API_KEY" ]; then
+  echo -n "$NVIDIA_NIM_API_KEY" > "$LITELLM_KEY_FILE"
+  chmod 600 "$LITELLM_KEY_FILE"
+fi
+
+# Use the local bundled cost map to avoid a blocked HTTPS fetch to GitHub
+# at startup (the sandbox network policy doesn't allow Python to reach
+# raw.githubusercontent.com, causing a ~5s timeout on every start).
+export LITELLM_LOCAL_MODEL_COST_MAP="True"
 
 _DEFAULT_MODEL="moonshotai/kimi-k2.5"
 _DEFAULT_PROVIDER="nvidia-endpoints"
@@ -86,6 +101,12 @@ generate_litellm_config() {
   local provider="${2:-$_DEFAULT_PROVIDER}"
   local api_base=""
   local litellm_prefix="nvidia_nim"
+  local api_key="${NVIDIA_NIM_API_KEY:-}"
+
+  # Read from persisted key file if env var is empty.
+  if [ -z "$api_key" ] && [ -f "$LITELLM_KEY_FILE" ]; then
+    api_key="$(cat "$LITELLM_KEY_FILE")"
+  fi
 
   case "$provider" in
     nvidia-endpoints)
@@ -96,12 +117,23 @@ generate_litellm_config() {
       api_base="https://integrate.api.nvidia.com/v1" ;;
   esac
 
+  # Write the actual key value into the config. Using os.environ/ references
+  # is fragile inside the sandbox where env vars may not be propagated to all
+  # child processes.  If no key is available yet, use a placeholder — the
+  # policy-proxy will regenerate the config when the key arrives.
+  local key_yaml
+  if [ -n "$api_key" ]; then
+    key_yaml="      api_key: \"${api_key}\""
+  else
+    key_yaml="      api_key: \"key-not-yet-configured\""
+  fi
+
   cat > "$LITELLM_CONFIG" <<LITELLM_EOF
 model_list:
   - model_name: "*"
     litellm_params:
       model: "${litellm_prefix}/${model_id}"
-      api_key: os.environ/NVIDIA_NIM_API_KEY
+${key_yaml}
       api_base: "${api_base}"
 general_settings:
   master_key: sk-nemoclaw-local
@@ -110,23 +142,26 @@ litellm_settings:
   drop_params: true
   num_retries: 0
 LITELLM_EOF
-  echo "[litellm] Config written: model=${litellm_prefix}/${model_id} api_base=${api_base}"
+  echo "[litellm] Config written: model=${litellm_prefix}/${model_id} api_base=${api_base} key=${api_key:+present}"
 }
 
 generate_litellm_config "$_DEFAULT_MODEL" "$_DEFAULT_PROVIDER"
 
-nohup litellm --config "$LITELLM_CONFIG" --port "$LITELLM_PORT" --host 127.0.0.1 \
+LITELLM_LOCAL_MODEL_COST_MAP="True" \
+  nohup litellm --config "$LITELLM_CONFIG" --port "$LITELLM_PORT" --host 127.0.0.1 \
   >> "$LITELLM_LOG" 2>&1 &
 echo "[litellm] Starting on 127.0.0.1:${LITELLM_PORT} (pid $!)"
 
 # Wait for LiteLLM to accept connections before proceeding.
-_litellm_deadline=$(($(date +%s) + 30))
-while ! curl -sf "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null 2>&1; do
+# Use /health/liveliness (basic liveness, no model checks) and --noproxy
+# to bypass the sandbox HTTP proxy for localhost connections.
+_litellm_deadline=$(($(date +%s) + 60))
+while ! curl -sf --noproxy 127.0.0.1 "http://127.0.0.1:${LITELLM_PORT}/health/liveliness" >/dev/null 2>&1; do
   if [ "$(date +%s)" -ge "$_litellm_deadline" ]; then
-    echo "[litellm] WARNING: LiteLLM did not become ready within 30s. Continuing anyway."
+    echo "[litellm] WARNING: LiteLLM did not become ready within 60s. Continuing anyway."
     break
   fi
-  sleep 0.5
+  sleep 1
 done
 
 # --------------------------------------------------------------------------
