@@ -56,6 +56,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
         nano \
     && rm -rf /var/lib/apt/lists/*
 
+# Fix transitive tar vulnerabilities (GHSA-qffp-2rhf-9h96,
+# GHSA-9ppj-qmqm-q256, GHSA-8qq5-rm4j-mr97, GHSA-r6q2-hw4h-h46w,
+# GHSA-34x7-hfp2-rc4v, GHSA-83g3-92jg-28cx).
+RUN npm install -g tar@7.5.11
+
 # GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         -o /usr/share/keyrings/githubcli-archive-keyring.gpg && \

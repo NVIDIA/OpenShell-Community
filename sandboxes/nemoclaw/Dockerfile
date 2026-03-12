@@ -27,6 +27,9 @@ COPY policy-proxy.js /usr/local/lib/policy-proxy.js
 COPY proto/ /usr/local/lib/nemoclaw-proto/
 RUN npm install -g @grpc/grpc-js @grpc/proto-loader js-yaml
 
+# Fix @hono/node-server authorization bypass (GHSA-wc8c-qw6v-h7f6)
+RUN npm install -g @hono/node-server@1.19.11
+
 # Allow the sandbox user to read the default policy (the startup script
 # copies it to a writable location; this chown covers non-Landlock envs)
 RUN chown -R sandbox:sandbox /etc/navigator
