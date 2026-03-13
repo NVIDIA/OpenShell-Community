@@ -37,6 +37,11 @@ const WELL_KNOWN_ENDPOINT = "https://navigator.navigator.svc.cluster.local:8080"
 let gatewayEndpoint = "";
 let sandboxName = "";
 
+function formatRequestLine(req) {
+  const host = req.headers.host || "unknown-host";
+  return `${req.method || "GET"} ${req.url || "/"} host=${host}`;
+}
+
 // ---------------------------------------------------------------------------
 // Discovery helpers
 // ---------------------------------------------------------------------------
@@ -312,6 +317,7 @@ function pushPolicyToGateway(yamlBody) {
 // ---------------------------------------------------------------------------
 
 function proxyRequest(clientReq, clientRes) {
+  console.log(`[policy-proxy] http in  ${formatRequestLine(clientReq)} -> ${UPSTREAM_HOST}:${UPSTREAM_PORT}`);
   const opts = {
     hostname: UPSTREAM_HOST,
     port: UPSTREAM_PORT,
@@ -321,6 +327,10 @@ function proxyRequest(clientReq, clientRes) {
   };
 
   const upstream = http.request(opts, (upstreamRes) => {
+    console.log(
+      `[policy-proxy] http out ${clientReq.method || "GET"} ${clientReq.url || "/"} ` +
+      `status=${upstreamRes.statusCode || 0}`
+    );
     clientRes.writeHead(upstreamRes.statusCode, upstreamRes.headers);
     upstreamRes.pipe(clientRes, { end: true });
   });
@@ -341,6 +351,7 @@ function proxyRequest(clientReq, clientRes) {
 // ---------------------------------------------------------------------------
 
 function handlePolicyGet(req, res) {
+  console.log(`[policy-proxy] policy get ${formatRequestLine(req)}`);
   fs.readFile(POLICY_PATH, "utf8", (err, data) => {
     if (err) {
       res.writeHead(err.code === "ENOENT" ? 404 : 500, {
@@ -356,7 +367,7 @@ function handlePolicyGet(req, res) {
 
 function handlePolicyPost(req, res) {
   const t0 = Date.now();
-  console.log(`[policy-proxy] ── POST /api/policy received`);
+  console.log(`[policy-proxy] policy post ${formatRequestLine(req)}`);
   const chunks = [];
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", () => {
@@ -447,6 +458,7 @@ const server = http.createServer((req, res) => {
 
 // WebSocket upgrade — pipe raw TCP to upstream
 server.on("upgrade", (req, socket, head) => {
+  console.log(`[policy-proxy] ws in    ${formatRequestLine(req)} -> ${UPSTREAM_HOST}:${UPSTREAM_PORT}`);
   const upstream = net.createConnection({ host: UPSTREAM_HOST, port: UPSTREAM_PORT }, () => {
     const reqLine = `${req.method} ${req.url} HTTP/${req.httpVersion}\r\n`;
     let headers = "";
