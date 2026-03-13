@@ -19,6 +19,7 @@ import { waitForReconnect, waitForStableConnection } from "./gateway-bridge.ts";
 import { syncKeysToProviders } from "./api-keys-page.ts";
 
 const INITIAL_CONNECT_TIMEOUT_MS = 30_000;
+const EXTENDED_CONNECT_TIMEOUT_MS = 300_000;
 const POST_PAIRING_SETTLE_DELAY_MS = 15_000;
 const STABLE_CONNECTION_WINDOW_MS = 3_000;
 const PAIRING_RELOAD_FLAG = "nemoclaw:pairing-bootstrap-reloaded";
@@ -102,29 +103,37 @@ function clearPairingReloadFlag(): void {
 function bootstrap() {
   showConnectOverlay();
 
+  const finalizeConnectedState = async () => {
+    setConnectOverlayText("Device pairing approved. Finalizing dashboard...");
+    try {
+      await waitForStableConnection(
+        STABLE_CONNECTION_WINDOW_MS,
+        POST_PAIRING_SETTLE_DELAY_MS,
+      );
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, POST_PAIRING_SETTLE_DELAY_MS));
+    }
+    if (shouldForcePairingReload()) {
+      markPairingReloadComplete();
+      setConnectOverlayText("Device pairing approved. Reloading dashboard...");
+      window.location.reload();
+      return;
+    }
+    clearPairingReloadFlag();
+    revealApp();
+  };
+
   waitForReconnect(INITIAL_CONNECT_TIMEOUT_MS)
-    .then(async () => {
-      setConnectOverlayText("Device pairing approved. Finalizing dashboard...");
+    .then(finalizeConnectedState)
+    .catch(async () => {
+      setConnectOverlayText("Still waiting for device pairing approval...");
       try {
-        await waitForStableConnection(
-          STABLE_CONNECTION_WINDOW_MS,
-          POST_PAIRING_SETTLE_DELAY_MS,
-        );
+        await waitForReconnect(EXTENDED_CONNECT_TIMEOUT_MS);
+        await finalizeConnectedState();
       } catch {
-        await new Promise((resolve) => setTimeout(resolve, POST_PAIRING_SETTLE_DELAY_MS));
+        clearPairingReloadFlag();
+        revealApp();
       }
-      if (shouldForcePairingReload()) {
-        markPairingReloadComplete();
-        setConnectOverlayText("Device pairing approved. Reloading dashboard...");
-        window.location.reload();
-        return;
-      }
-      clearPairingReloadFlag();
-      revealApp();
-    })
-    .catch(() => {
-      clearPairingReloadFlag();
-      revealApp();
     });
 
   const keysIngested = ingestKeysFromUrl();

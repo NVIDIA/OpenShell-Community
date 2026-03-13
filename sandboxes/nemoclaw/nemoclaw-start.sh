@@ -146,7 +146,7 @@ echo "[gateway] policy-proxy launched (pid $!) upstream=${INTERNAL_GATEWAY_PORT}
 # before the user notices the "pairing required" prompt in the Control UI.
 (
   echo "[auto-pair] watcher starting"
-  _pair_timeout_secs="${AUTO_PAIR_TIMEOUT_SECS:-1800}"
+  _pair_timeout_secs="${AUTO_PAIR_TIMEOUT_SECS:-0}"
   _pair_sleep_secs="0.5"
   _pair_heartbeat_every=120
   _json_has_approval() {
