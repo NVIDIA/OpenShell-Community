@@ -9,7 +9,7 @@ version: "0.1.0"
 description: >
   Prevents AI agent data exfiltration by dynamically revoking
   capabilities when private/untrusted data enters the context.
-  Complements NemoClaw's perimeter security with context-aware
+  Complements OpenShell's perimeter security with context-aware
   inference-level controls.
 
 exports:

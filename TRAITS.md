@@ -1,6 +1,6 @@
 # Sandbox Traits
 
-Traits are cross-cutting capabilities you add to any NemoClaw sandbox. A trait is **not** a sandbox — it's a property you compose into one.
+Traits are cross-cutting capabilities you add to any OpenShell sandbox. A trait is **not** a sandbox — it's a property you compose into one.
 
 "Give me openclaw **with capability ratcheting**."
 "Give me sdg **with observability tracing**."
@@ -21,11 +21,11 @@ Each trait publishes a container image to GHCR. Use multi-stage `COPY --from` to
 
 ```dockerfile
 # Start from the base sandbox
-ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw-community/sandboxes/base:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest
 FROM ${BASE_IMAGE}
 
 # --- Add the capability-ratchet trait ---
-ARG RATCHET_IMAGE=ghcr.io/nvidia/nemoclaw-community/traits/capability-ratchet:latest
+ARG RATCHET_IMAGE=ghcr.io/nvidia/openshell-community/traits/capability-ratchet:latest
 COPY --from=${RATCHET_IMAGE} /usr/local/bin/capability-ratchet-sidecar /usr/local/bin/
 COPY --from=${RATCHET_IMAGE} /usr/local/bin/bash-ast /usr/local/bin/
 COPY --from=${RATCHET_IMAGE} /usr/local/bin/ratchet-start /usr/local/bin/
@@ -75,8 +75,8 @@ inference:
 ### Full Example: OpenClaw with Capability Ratcheting
 
 ```dockerfile
-ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw-community/sandboxes/base:latest
-ARG RATCHET_IMAGE=ghcr.io/nvidia/nemoclaw-community/traits/capability-ratchet:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest
+ARG RATCHET_IMAGE=ghcr.io/nvidia/openshell-community/traits/capability-ratchet:latest
 
 FROM ${BASE_IMAGE}
 
