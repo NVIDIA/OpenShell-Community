@@ -13,6 +13,10 @@ use crate::error::SidecarError;
 
 /// Forward an inference request to the real backend.
 ///
+/// When `force_non_streaming` is true, the request is sent with `stream: false`
+/// regardless of the original value. This is needed for tainted requests where
+/// the sidecar must inspect the full response before returning it.
+///
 /// # Errors
 ///
 /// Returns `SidecarError` if the HTTP request fails or the backend returns a non-success status.
@@ -24,13 +28,17 @@ pub async fn forward_to_backend(
     request_data: &Value,
     config: &BackendConfig,
     http_client: &reqwest::Client,
+    force_non_streaming: bool,
 ) -> Result<Value, SidecarError> {
     let mut data = request_data.clone();
 
-    // Force non-streaming for post-call analysis
-    data.as_object_mut()
-        .unwrap()
-        .insert("stream".into(), Value::Bool(false));
+    // Only force non-streaming when the caller requires full-response analysis
+    // (i.e., tainted requests). Non-tainted requests pass through unchanged.
+    if force_non_streaming {
+        data.as_object_mut()
+            .unwrap()
+            .insert("stream".into(), Value::Bool(false));
+    }
 
     // Apply model override if configured
     if let Some(ref model) = config.model {

@@ -237,6 +237,7 @@ async fn chat_completions(
         Err(_) => {
             return (
                 StatusCode::BAD_REQUEST,
+                HeaderMap::new(),
                 axum::Json(json!({
                     "error": {
                         "message": "Invalid JSON in request body",
@@ -259,38 +260,59 @@ async fn chat_completions(
 
     let mut request_data = request_data;
 
-    if !taint.is_empty() {
+    // Capture whether the original request had streaming enabled
+    let original_stream = request_data
+        .get("stream")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    let is_tainted = !taint.is_empty();
+
+    if is_tainted {
         let taint_strs: Vec<String> = taint.iter().map(std::string::ToString::to_string).collect();
         info!(taint = ?taint_strs, "taint_detected");
         normalize::inject_hint(&mut request_data, TAINT_HINT, None);
-        request_data
-            .as_object_mut()
-            .unwrap()
-            .insert("stream".into(), Value::Bool(false));
+
+        if original_stream {
+            info!("streaming_disabled_for_tainted_request");
+        }
     }
 
-    // Forward to backend
-    let response_data =
-        match forward_to_backend(&request_data, &state.config.backend, &state.http_client).await {
-            Ok(r) => r,
-            Err(e) => {
-                warn!(error = %e, "backend_error");
-                return (
-                    StatusCode::BAD_GATEWAY,
-                    axum::Json(json!({
-                        "error": {
-                            "message": format!("Backend error: {e}"),
-                            "type": "upstream_error",
-                        }
-                    })),
-                );
-            }
-        };
+    // Forward to backend — only force non-streaming for tainted requests
+    let response_data = match forward_to_backend(
+        &request_data,
+        &state.config.backend,
+        &state.http_client,
+        is_tainted,
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            warn!(error = %e, "backend_error");
+            return (
+                StatusCode::BAD_GATEWAY,
+                HeaderMap::new(),
+                axum::Json(json!({
+                    "error": {
+                        "message": format!("Backend error: {e}"),
+                        "type": "upstream_error",
+                    }
+                })),
+            );
+        }
+    };
 
     // Post-call: analyze tool calls in response
     let final_response = analyze_response(&state, &taint, &approved_ids, response_data).await;
 
-    (StatusCode::OK, axum::Json(final_response))
+    // Build response headers — signal when streaming was blocked due to taint
+    let mut response_headers = HeaderMap::new();
+    if is_tainted && original_stream {
+        response_headers.insert("x-ratchet-stream-blocked", "true".parse().unwrap());
+    }
+
+    (StatusCode::OK, response_headers, axum::Json(final_response))
 }
 
 async fn analyze_response(
