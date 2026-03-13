@@ -11,7 +11,7 @@
 #   4. unknown                 -> both taint flags (fail closed)
 
 version: "2.0"
-name: nemoclaw-default
+name: openshell-default
 
 tools:
   # --- Private data sources ---

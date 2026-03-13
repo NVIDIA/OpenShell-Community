@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Capability Ratchet sidecar configuration for NemoClaw sandboxes.
+# Capability Ratchet sidecar configuration for OpenShell sandboxes.
 #
-# The sidecar sits between the NemoClaw proxy and the real inference backend,
+# The sidecar sits between the OpenShell proxy and the real inference backend,
 # analyzing each request for taint (private/untrusted data in context) and
 # blocking or sandboxing tool calls that would violate the ratchet policy.
 

@@ -1,6 +1,6 @@
-# Contributing to NemoClaw Community
+# Contributing to OpenShell Community
 
-Thank you for your interest in contributing to the NemoClaw Community ecosystem. This guide covers everything you need to get started.
+Thank you for your interest in contributing to the OpenShell Community ecosystem. This guide covers everything you need to get started.
 
 ## Ways to Contribute
 
@@ -8,7 +8,7 @@ Thank you for your interest in contributing to the NemoClaw Community ecosystem.
 - **Skills** -- Create agent skills and tool definitions inside a sandbox's `skills/` directory
 - **Bug fixes** -- Fix issues in existing sandboxes, skills, or configurations
 - **Documentation** -- Improve READMEs, guides, and usage examples
-- **Integrations** -- Connect NemoClaw to new tools, platforms, or workflows
+- **Integrations** -- Connect OpenShell to new tools, platforms, or workflows
 
 ## Getting Started
 
@@ -17,8 +17,8 @@ Thank you for your interest in contributing to the NemoClaw Community ecosystem.
 3. Create a feature branch from `main`
 
 ```bash
-git clone https://github.com/<your-username>/NemoClaw-Community.git
-cd NemoClaw-Community
+git clone https://github.com/<your-username>/OpenShell-Community.git
+cd OpenShell-Community
 git checkout -b my-feature
 ```
 

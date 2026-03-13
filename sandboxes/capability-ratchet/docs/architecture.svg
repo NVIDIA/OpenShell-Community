@@ -8,7 +8,7 @@
   <text x="100" y="103" text-anchor="middle" font-size="10" fill="#5c6bc0">Claude / Codex</text>
 
   <rect x="220" y="60" width="160" height="50" rx="6" fill="#e0f2f1" stroke="#26a69a" stroke-width="1.5"/>
-  <text x="300" y="85" text-anchor="middle" font-weight="600" fill="#00695c">NemoClaw Proxy</text>
+  <text x="300" y="85" text-anchor="middle" font-weight="600" fill="#00695c">OpenShell Proxy</text>
   <text x="300" y="100" text-anchor="middle" font-size="10" fill="#26a69a">TLS · route · policy</text>
 
   <rect x="430" y="50" width="180" height="70" rx="6" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>

@@ -1,6 +1,6 @@
 # OpenClaw Sandbox
 
-NemoClaw sandbox image pre-configured with [OpenClaw](https://github.com/openclaw) for open agent manipulation and control.
+OpenShell sandbox image pre-configured with [OpenClaw](https://github.com/openclaw) for open agent manipulation and control.
 
 ## What's Included
 
@@ -12,13 +12,13 @@ NemoClaw sandbox image pre-configured with [OpenClaw](https://github.com/opencla
 ## Build
 
 ```bash
-docker build -t nemoclaw-openclaw .
+docker build -t openshell-openclaw .
 ```
 
 To build against a specific base image:
 
 ```bash
-docker build -t nemoclaw-openclaw --build-arg BASE_IMAGE=nemoclaw/sandbox:v0.1.0 .
+docker build -t openshell-openclaw --build-arg BASE_IMAGE=openshell/sandbox:v0.1.0 .
 ```
 
 ## Usage
@@ -26,13 +26,13 @@ docker build -t nemoclaw-openclaw --build-arg BASE_IMAGE=nemoclaw/sandbox:v0.1.0
 ### Create a sandbox
 
 ```bash
-nemoclaw sandbox create --from openclaw
+openshell sandbox create --from openclaw
 ```
 
 ### With port forwarding (to access the OpenClaw UI)
 
 ```bash
-nemoclaw sandbox create --from openclaw --forward 18789 -- openclaw-start
+openshell sandbox create --from openclaw --forward 18789 -- openclaw-start
 ```
 
 This runs the `openclaw-start` helper which:

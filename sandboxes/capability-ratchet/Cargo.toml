@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
-description = "Capability Ratchet sidecar for NemoClaw sandboxes"
+description = "Capability Ratchet sidecar for OpenShell sandboxes"
 
 [dependencies]
 axum = "0.8"

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Capability Ratchet sidecar for `NemoClaw` sandboxes.
+//! Capability Ratchet sidecar for `OpenShell` sandboxes.
 
 pub mod bash_ast;
 pub mod bash_unwrap;

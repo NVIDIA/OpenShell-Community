@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # openclaw-start — Configure OpenClaw and start the gateway.
-# Designed for NemoClaw sandboxes.
+# Designed for OpenShell sandboxes.
 #
 # Usage:
-#   nemoclaw sandbox create --from openclaw --forward 18789 -- openclaw-start
+#   openshell sandbox create --from openclaw --forward 18789 -- openclaw-start
 set -euo pipefail
 
 openclaw onboard

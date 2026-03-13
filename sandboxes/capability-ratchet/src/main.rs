@@ -19,7 +19,7 @@ use capability_ratchet_sidecar::server::{AppState, create_router};
 #[derive(Parser)]
 #[command(
     name = "capability-ratchet-sidecar",
-    about = "Capability Ratchet sidecar for NemoClaw sandboxes"
+    about = "Capability Ratchet sidecar for OpenShell sandboxes"
 )]
 struct Cli {
     /// Path to sidecar config YAML

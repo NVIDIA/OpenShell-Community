@@ -3,16 +3,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Capability Ratchet sandbox image for NemoClaw
+# Capability Ratchet sandbox image for OpenShell
 #
 # Builds on the community base sandbox and adds the capability ratchet
 # sidecar, which prevents AI agent data exfiltration by dynamically
 # revoking capabilities when private/untrusted data enters the context.
 #
-# Build:  docker build -t nemoclaw-ratchet --build-arg BASE_IMAGE=nemoclaw-base .
-# Run:    nemoclaw sandbox create --from capability-ratchet -- ratchet-start
+# Build:  docker build -t openshell-ratchet --build-arg BASE_IMAGE=openshell-base .
+# Run:    openshell sandbox create --from capability-ratchet -- ratchet-start
 
-ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw-community/sandboxes/base:latest
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest
 
 # Stage 1: Build Rust binary
 FROM rust:1.88-bookworm AS builder
@@ -35,7 +35,7 @@ RUN ARCH=$(uname -m) && \
 # Ratchet sidecar (single static binary, no runtime deps)
 COPY --from=builder /build/target/release/capability-ratchet-sidecar /usr/local/bin/
 
-# Copy NemoClaw sandbox policy
+# Copy OpenShell sandbox policy
 COPY policy.yaml /etc/navigator/policy.yaml
 
 # Copy ratchet-specific configs

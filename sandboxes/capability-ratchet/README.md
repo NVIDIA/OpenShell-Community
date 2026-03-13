@@ -1,10 +1,10 @@
 # Capability Ratchet Sandbox
 
-A NemoClaw sandbox that prevents AI agent data exfiltration through dynamic capability ratcheting.
+A OpenShell sandbox that prevents AI agent data exfiltration through dynamic capability ratcheting.
 
 ## What's Included
 
-- **Capability Ratchet sidecar** — A per-request, stateless HTTP proxy that sits between the NemoClaw sandbox proxy and the real inference backend
+- **Capability Ratchet sidecar** — A per-request, stateless HTTP proxy that sits between the OpenShell sandbox proxy and the real inference backend
 - **bash-ast** — Go binary for AST-based bash command analysis
 - **Ratchet policy** — Configurable YAML policy defining which tools produce taint and which capabilities they require
 
@@ -14,7 +14,7 @@ A NemoClaw sandbox that prevents AI agent data exfiltration through dynamic capa
 Agent (Claude/Codex)
   │
   ▼
-NemoClaw Sandbox Proxy (existing, Rust)
+OpenShell Sandbox Proxy (existing, Rust)
   │  TLS terminate, detect inference pattern
   │  Route to "ratchet" backend (inference-routes.yaml)
   ▼
@@ -32,14 +32,14 @@ When an agent reads private data (email, calendar) or untrusted input (wiki page
 ## Build
 
 ```bash
-docker build -t nemoclaw-ratchet --build-arg BASE_IMAGE=nemoclaw-base .
+docker build -t openshell-ratchet --build-arg BASE_IMAGE=openshell-base .
 ```
 
 ## Usage
 
 ```bash
 # Create a sandbox with the ratchet
-nemoclaw sandbox create --from capability-ratchet -- ratchet-start
+openshell sandbox create --from capability-ratchet -- ratchet-start
 
 # Inside the sandbox, verify the sidecar is running
 curl http://127.0.0.1:4001/health
@@ -49,11 +49,11 @@ curl http://127.0.0.1:4001/health
 
 - `ratchet-config.yaml` — Sidecar configuration (upstream URL, API key, listen port)
 - `ratchet-policy.yaml` — Tool taint and capability declarations
-- `policy.yaml` — NemoClaw network policy (filesystem, process, network ACLs)
+- `policy.yaml` — OpenShell network policy (filesystem, process, network ACLs)
 
 ### Inference Routes
 
-Add to your NemoClaw `inference-routes.yaml` to route inference traffic through the ratchet:
+Add to your OpenShell `inference-routes.yaml` to route inference traffic through the ratchet:
 
 ```yaml
 routes:

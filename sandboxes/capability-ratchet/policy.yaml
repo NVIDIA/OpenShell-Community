@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# NemoClaw sandbox network policy for the capability ratchet sandbox.
+# OpenShell sandbox network policy for the capability ratchet sandbox.
 # This defines filesystem, process, and network policies enforced by
-# NemoClaw's proxy (same structure as openclaw/policy.yaml).
+# OpenShell's proxy (same structure as openclaw/policy.yaml).
 
 version: 1
 

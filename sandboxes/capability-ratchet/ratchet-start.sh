@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # ratchet-start — Start the capability ratchet sidecar.
-# Designed for NemoClaw sandboxes.
+# Designed for OpenShell sandboxes.
 #
 # Usage:
-#   nemoclaw sandbox create --from capability-ratchet -- ratchet-start
+#   openshell sandbox create --from capability-ratchet -- ratchet-start
 set -euo pipefail
 
 # Start bash-ast server in background (provides AST parsing over Unix socket)

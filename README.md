@@ -1,14 +1,14 @@
-# NemoClaw Community
+# OpenShell Community
 
-[NemoClaw](https://github.com/NVIDIA/NemoClaw) is the runtime environment for autonomous agents -- the infrastructure where they live, work, and verify. It provides a programmable factory where agents can spin up physics simulations to master tasks, generate synthetic data to fix edge cases, and safely iterate through thousands of failures in isolated sandboxes. The core engine includes the sandbox runtime, policy engine, gateway (with k3s harness), privacy router, and CLI.
+[OpenShell](https://github.com/NVIDIA/OpenShell) is the runtime environment for autonomous agents -- the infrastructure where they live, work, and verify. It provides a programmable factory where agents can spin up physics simulations to master tasks, generate synthetic data to fix edge cases, and safely iterate through thousands of failures in isolated sandboxes. The core engine includes the sandbox runtime, policy engine, gateway (with k3s harness), privacy router, and CLI.
 
-This repo is the community ecosystem around NemoClaw -- a hub for contributed skills, sandbox images, launchables, and integrations that extend its capabilities. For the core engine, docs, and published artifacts (PyPI, containers, binaries), see the [NemoClaw](https://github.com/NVIDIA/NemoClaw) repo.
+This repo is the community ecosystem around OpenShell -- a hub for contributed skills, sandbox images, launchables, and integrations that extend its capabilities. For the core engine, docs, and published artifacts (PyPI, containers, binaries), see the [OpenShell](https://github.com/NVIDIA/OpenShell) repo.
 
 ## What's Here
 
 | Directory    | Description                                                                       |
 | ------------ | --------------------------------------------------------------------------------- |
-| `brev/`      | [Brev](https://brev.dev) launchable for one-click cloud deployment of NemoClaw    |
+| `brev/`      | [Brev](https://brev.dev) launchable for one-click cloud deployment of OpenShell    |
 | `sandboxes/` | Pre-built sandbox images for domain-specific workloads (each with its own skills) |
 
 ### Sandboxes
@@ -24,7 +24,7 @@ This repo is the community ecosystem around NemoClaw -- a hub for contributed sk
 
 ### Prerequisites
 
-- [NemoClaw CLI](https://github.com/NVIDIA/NemoClaw) installed (`uv pip install nemoclaw`)
+- [OpenShell CLI](https://github.com/NVIDIA/OpenShell) installed (`uv pip install openshell`)
 - Docker or a compatible container runtime
 - NVIDIA GPU with appropriate drivers (for GPU-accelerated images)
 
@@ -35,7 +35,7 @@ TODO: Add Brev instructions
 ### Using Sandboxes
 
 ```bash
-nemoclaw sandbox create --from openclaw
+openshell sandbox create --from openclaw
 ```
 
 The `--from` flag accepts any sandbox defined under `sandboxes/` (e.g., `openclaw`, `sdg`, `simulation`), a local path, or a container image reference.
