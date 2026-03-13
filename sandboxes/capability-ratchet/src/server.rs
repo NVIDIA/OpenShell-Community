@@ -169,43 +169,44 @@ fn make_blocked_response(
     original.clone()
 }
 
-fn make_sandboxed_response(original: &Value, rewrites: &std::collections::HashMap<String, String>) -> Value {
+fn make_sandboxed_response(
+    original: &Value,
+    rewrites: &std::collections::HashMap<String, String>,
+) -> Value {
     let mut result = original.clone();
 
     if let Some(choices) = result.get_mut("choices").and_then(Value::as_array_mut)
         && let Some(first) = choices.first_mut()
-            && let Some(tool_calls) = first
-                .get_mut("message")
-                .and_then(|m| m.get_mut("tool_calls"))
-                .and_then(Value::as_array_mut)
+        && let Some(tool_calls) = first
+            .get_mut("message")
+            .and_then(|m| m.get_mut("tool_calls"))
+            .and_then(Value::as_array_mut)
+    {
+        for tc in tool_calls {
+            let tc_id = tc
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            if let Some(new_cmd) = rewrites.get(&tc_id)
+                && let Some(func) = tc.get_mut("function")
             {
-                for tc in tool_calls {
-                    let tc_id = tc
-                        .get("id")
-                        .and_then(Value::as_str)
-                        .unwrap_or_default()
-                        .to_string();
-                    if let Some(new_cmd) = rewrites.get(&tc_id)
-                        && let Some(func) = tc.get_mut("function") {
-                            let args_val = func.get("arguments");
-                            let mut args: serde_json::Map<String, Value> = args_val
-                                .and_then(|a| {
-                                    a.as_str()
-                                        .and_then(|s| serde_json::from_str(s).ok())
-                                        .or_else(|| a.as_object().cloned())
-                                })
-                                .unwrap_or_default();
-                            args.insert(
-                                "command".into(),
-                                Value::String(new_cmd.clone()),
-                            );
-                            func.as_object_mut().unwrap().insert(
-                                "arguments".into(),
-                                Value::String(serde_json::to_string(&args).unwrap_or_default()),
-                            );
-                        }
-                }
+                let args_val = func.get("arguments");
+                let mut args: serde_json::Map<String, Value> = args_val
+                    .and_then(|a| {
+                        a.as_str()
+                            .and_then(|s| serde_json::from_str(s).ok())
+                            .or_else(|| a.as_object().cloned())
+                    })
+                    .unwrap_or_default();
+                args.insert("command".into(), Value::String(new_cmd.clone()));
+                func.as_object_mut().unwrap().insert(
+                    "arguments".into(),
+                    Value::String(serde_json::to_string(&args).unwrap_or_default()),
+                );
             }
+        }
+    }
 
     result
 }
@@ -269,41 +270,47 @@ async fn chat_completions(
     }
 
     // Forward to backend
-    let response_data = match forward_to_backend(
-        &request_data,
-        &state.config.backend,
-        &state.http_client,
-    )
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            warn!(error = %e, "backend_error");
-            return (
-                StatusCode::BAD_GATEWAY,
-                axum::Json(json!({
-                    "error": {
-                        "message": format!("Backend error: {e}"),
-                        "type": "upstream_error",
-                    }
-                })),
-            );
-        }
-    };
+    let response_data =
+        match forward_to_backend(&request_data, &state.config.backend, &state.http_client).await {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(error = %e, "backend_error");
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    axum::Json(json!({
+                        "error": {
+                            "message": format!("Backend error: {e}"),
+                            "type": "upstream_error",
+                        }
+                    })),
+                );
+            }
+        };
 
     // Post-call: analyze tool calls in response
+    let final_response = analyze_response(&state, &taint, &approved_ids, response_data).await;
+
+    (StatusCode::OK, axum::Json(final_response))
+}
+
+async fn analyze_response(
+    state: &AppState,
+    taint: &BTreeSet<TaintFlag>,
+    approved_ids: &BTreeSet<String>,
+    response_data: Value,
+) -> Value {
     if taint.is_empty() {
-        return (StatusCode::OK, axum::Json(response_data));
+        return response_data;
     }
 
     let tool_calls = normalize::extract_tool_calls(&response_data);
     if tool_calls.is_empty() {
-        return (StatusCode::OK, axum::Json(response_data));
+        return response_data;
     }
 
-    let forbidden = get_forbidden(&taint);
+    let forbidden = get_forbidden(taint);
     if forbidden.is_empty() {
-        return (StatusCode::OK, axum::Json(response_data));
+        return response_data;
     }
 
     let mut blocked_calls: Vec<BlockedCall> = Vec::new();
@@ -311,7 +318,6 @@ async fn chat_completions(
         std::collections::HashMap::new();
 
     for tc in &tool_calls {
-        // User-approved tool calls bypass analysis
         if approved_ids.contains(&tc.id) {
             info!(
                 tool_name = tc.name,
@@ -321,17 +327,18 @@ async fn chat_completions(
             continue;
         }
 
-        let analysis: AnalysisResult =
-            if let Ok(a) = analyze_tool_call(tc, &state.policy, &taint, state.bash_ast.as_ref()).await { a } else {
-                warn!(tool_call_id = tc.id, "bash_ast_unavailable");
-                blocked_calls.push(BlockedCall {
-                    id: tc.id.clone(),
-                    name: tc.name.clone(),
-                    required: "analysis unavailable".into(),
-                    reason: "bash-ast server not reachable".into(),
-                });
-                continue;
-            };
+        let Ok(analysis) =
+            analyze_tool_call(tc, &state.policy, taint, state.bash_ast.as_ref()).await
+        else {
+            warn!(tool_call_id = tc.id, "bash_ast_unavailable");
+            blocked_calls.push(BlockedCall {
+                id: tc.id.clone(),
+                name: tc.name.clone(),
+                required: "analysis unavailable".into(),
+                reason: "bash-ast server not reachable".into(),
+            });
+            continue;
+        };
 
         let violations: BTreeSet<Capability> = analysis
             .required_capabilities
@@ -340,60 +347,98 @@ async fn chat_completions(
             .collect();
 
         if !violations.is_empty() {
-            if let Some(ref sandboxed) = analysis.sandboxed_command {
-                sandboxed_rewrites.insert(tc.id.clone(), sandboxed.clone());
-                info!(
-                    tool_name = tc.name,
-                    tool_call_id = tc.id,
-                    "tool_call_sandboxed",
-                );
-            } else if state.config.shadow_mode {
-                let req_strs: Vec<String> =
-                    analysis.required_capabilities.iter().map(std::string::ToString::to_string).collect();
-                let forb_strs: Vec<String> = forbidden.iter().map(std::string::ToString::to_string).collect();
-                let viol_strs: Vec<String> = violations.iter().map(std::string::ToString::to_string).collect();
-                warn!(
-                    tool_name = tc.name,
-                    tool_call_id = tc.id,
-                    required = ?req_strs,
-                    forbidden = ?forb_strs,
-                    violations = ?viol_strs,
-                    "tool_call_would_be_blocked",
-                );
-            } else {
-                let viol_strs: Vec<String> = violations.iter().map(std::string::ToString::to_string).collect();
-                let taint_strs: Vec<String> = taint.iter().map(std::string::ToString::to_string).collect();
-                blocked_calls.push(BlockedCall {
-                    id: tc.id.clone(),
-                    name: tc.name.clone(),
-                    required: viol_strs.join(", "),
-                    reason: taint_strs.join(", "),
-                });
-                let req_strs: Vec<String> =
-                    analysis.required_capabilities.iter().map(std::string::ToString::to_string).collect();
-                let forb_strs: Vec<String> = forbidden.iter().map(std::string::ToString::to_string).collect();
-                warn!(
-                    tool_name = tc.name,
-                    tool_call_id = tc.id,
-                    required = ?req_strs,
-                    forbidden = ?forb_strs,
-                    violations = ?viol_strs,
-                    "tool_call_blocked",
-                );
-            }
+            handle_violation(
+                tc,
+                &analysis,
+                &violations,
+                &forbidden,
+                taint,
+                state.config.shadow_mode,
+                &mut blocked_calls,
+                &mut sandboxed_rewrites,
+            );
         }
     }
 
-    // Apply rewrites
-    let final_response = if !blocked_calls.is_empty() {
-        make_blocked_response(&response_data, &blocked_calls, &taint)
+    if !blocked_calls.is_empty() {
+        make_blocked_response(&response_data, &blocked_calls, taint)
     } else if !sandboxed_rewrites.is_empty() {
         make_sandboxed_response(&response_data, &sandboxed_rewrites)
     } else {
         response_data
-    };
+    }
+}
 
-    (StatusCode::OK, axum::Json(final_response))
+#[allow(clippy::too_many_arguments)]
+fn handle_violation(
+    tc: &crate::types::ToolCall,
+    analysis: &AnalysisResult,
+    violations: &BTreeSet<Capability>,
+    forbidden: &BTreeSet<Capability>,
+    taint: &BTreeSet<TaintFlag>,
+    shadow_mode: bool,
+    blocked_calls: &mut Vec<BlockedCall>,
+    sandboxed_rewrites: &mut std::collections::HashMap<String, String>,
+) {
+    if let Some(ref sandboxed) = analysis.sandboxed_command {
+        sandboxed_rewrites.insert(tc.id.clone(), sandboxed.clone());
+        info!(
+            tool_name = tc.name,
+            tool_call_id = tc.id,
+            "tool_call_sandboxed",
+        );
+    } else if shadow_mode {
+        let req_strs: Vec<String> = analysis
+            .required_capabilities
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        let forb_strs: Vec<String> = forbidden
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        let viol_strs: Vec<String> = violations
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        warn!(
+            tool_name = tc.name,
+            tool_call_id = tc.id,
+            required = ?req_strs,
+            forbidden = ?forb_strs,
+            violations = ?viol_strs,
+            "tool_call_would_be_blocked",
+        );
+    } else {
+        let viol_strs: Vec<String> = violations
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        let taint_strs: Vec<String> = taint.iter().map(std::string::ToString::to_string).collect();
+        blocked_calls.push(BlockedCall {
+            id: tc.id.clone(),
+            name: tc.name.clone(),
+            required: viol_strs.join(", "),
+            reason: taint_strs.join(", "),
+        });
+        let req_strs: Vec<String> = analysis
+            .required_capabilities
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        let forb_strs: Vec<String> = forbidden
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        warn!(
+            tool_name = tc.name,
+            tool_call_id = tc.id,
+            required = ?req_strs,
+            forbidden = ?forb_strs,
+            violations = ?viol_strs,
+            "tool_call_blocked",
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -14,6 +14,10 @@ use tracing::{debug, warn};
 
 use crate::types::ToolCall;
 
+static EMPTY_OBJECT: std::sync::LazyLock<Value> =
+    std::sync::LazyLock::new(|| Value::Object(Map::new()));
+static EMPTY_ARGS_STR: std::sync::LazyLock<Value> = std::sync::LazyLock::new(|| json!("{}"));
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Format enum (compile-time dispatch, no vtable)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -86,9 +90,10 @@ pub fn resolve(data: &Value, call_type: Option<&str>) -> MessageFormat {
     // 2. Fallback: sniff the data dict
     if let Some(messages) = data.get("messages") {
         if let Some(arr) = messages.as_array()
-            && has_anthropic_blocks(arr) {
-                return MessageFormat::Anthropic;
-            }
+            && has_anthropic_blocks(arr)
+        {
+            return MessageFormat::Anthropic;
+        }
         return MessageFormat::ChatCompletions;
     }
     MessageFormat::ResponsesApi
@@ -107,9 +112,10 @@ pub fn normalize_input(data: &Value, call_type: Option<&str>) -> Vec<Value> {
 pub fn extract_tool_calls(response: &Value) -> Vec<ToolCall> {
     // Responses API: output list with function_call items.
     if let Some(output) = response.get("output").and_then(Value::as_array)
-        && !output.is_empty() {
-            return responses_extract_tool_calls(response);
-        }
+        && !output.is_empty()
+    {
+        return responses_extract_tool_calls(response);
+    }
 
     // Anthropic: content list with tool_use blocks.
     if let Some(content) = response.get("content").and_then(Value::as_array) {
@@ -122,9 +128,10 @@ pub fn extract_tool_calls(response: &Value) -> Vec<ToolCall> {
 
     // Chat Completions: choices[0].message.tool_calls.
     if let Some(choices) = response.get("choices").and_then(Value::as_array)
-        && !choices.is_empty() {
-            return cc_extract_tool_calls(response);
-        }
+        && !choices.is_empty()
+    {
+        return cc_extract_tool_calls(response);
+    }
 
     Vec::new()
 }
@@ -146,18 +153,13 @@ fn cc_normalize_input(data: &Value) -> Vec<Value> {
 }
 
 fn cc_inject_hint(data: &mut Value, hint_text: &str) {
-    let messages = data
-        .as_object_mut()
-        .and_then(|o| {
-            o.entry("messages")
-                .or_insert_with(|| Value::Array(Vec::new()))
-                .as_array_mut()
-        });
+    let messages = data.as_object_mut().and_then(|o| {
+        o.entry("messages")
+            .or_insert_with(|| Value::Array(Vec::new()))
+            .as_array_mut()
+    });
     if let Some(msgs) = messages {
-        msgs.insert(
-            0,
-            json!({"role": "system", "content": hint_text}),
-        );
+        msgs.insert(0, json!({"role": "system", "content": hint_text}));
     }
 }
 
@@ -187,9 +189,8 @@ fn anthropic_normalize_input(data: &Value) -> Vec<Value> {
 }
 
 fn anthropic_inject_hint(data: &mut Value, hint_text: &str) {
-    let obj = match data.as_object_mut() {
-        Some(o) => o,
-        None => return,
+    let Some(obj) = data.as_object_mut() else {
+        return;
     };
 
     match obj.get("system") {
@@ -210,9 +211,8 @@ fn anthropic_inject_hint(data: &mut Value, hint_text: &str) {
 }
 
 fn anthropic_extract_tool_calls(response: &Value) -> Vec<ToolCall> {
-    let content = match response.get("content").and_then(Value::as_array) {
-        Some(c) => c,
-        None => return Vec::new(),
+    let Some(content) = response.get("content").and_then(Value::as_array) else {
+        return Vec::new();
     };
 
     let mut calls = Vec::new();
@@ -231,7 +231,7 @@ fn anthropic_extract_tool_calls(response: &Value) -> Vec<ToolCall> {
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .into(),
-            arguments: parse_arguments(block.get("input").unwrap_or(&Value::Object(Map::new()))),
+            arguments: parse_arguments(block.get("input").unwrap_or(&EMPTY_OBJECT)),
         });
     }
     calls
@@ -239,15 +239,15 @@ fn anthropic_extract_tool_calls(response: &Value) -> Vec<ToolCall> {
 
 fn has_anthropic_blocks(messages: &[Value]) -> bool {
     for msg in messages {
-        let content = match msg.get("content").and_then(Value::as_array) {
-            Some(c) => c,
-            None => continue,
+        let Some(content) = msg.get("content").and_then(Value::as_array) else {
+            continue;
         };
         for block in content {
             if let Some(t) = block.get("type").and_then(Value::as_str)
-                && (t == "tool_use" || t == "tool_result") {
-                    return true;
-                }
+                && (t == "tool_use" || t == "tool_result")
+            {
+                return true;
+            }
         }
     }
     false
@@ -257,14 +257,11 @@ fn convert_anthropic_messages(messages: &[Value]) -> Vec<Value> {
     let mut result = Vec::new();
 
     for msg in messages {
-        let role = msg
-            .get("role")
-            .and_then(Value::as_str)
-            .unwrap_or("user");
+        let role = msg.get("role").and_then(Value::as_str).unwrap_or("user");
         let content = msg.get("content");
 
         // Plain string / None content — pass through
-        let content_arr = if let Some(arr) = content.and_then(Value::as_array) { arr } else {
+        let Some(content_arr) = content.and_then(Value::as_array) else {
             let mut out = json!({"role": role, "content": content.cloned().unwrap_or(Value::Null)});
             for field in &["tool_calls", "tool_call_id", "name"] {
                 if let Some(val) = msg.get(*field) {
@@ -296,9 +293,10 @@ fn convert_anthropic_messages(messages: &[Value]) -> Vec<Value> {
             match btype {
                 "text" => {
                     if let Some(t) = block.get("text").and_then(Value::as_str)
-                        && !t.is_empty() {
-                            text_parts.push(t.into());
-                        }
+                        && !t.is_empty()
+                    {
+                        text_parts.push(t.into());
+                    }
                 }
                 "tool_use" => tool_uses.push(block),
                 "tool_result" => tool_results.push(block),
@@ -306,80 +304,89 @@ fn convert_anthropic_messages(messages: &[Value]) -> Vec<Value> {
             }
         }
 
-        match role {
-            "assistant" => {
-                if !tool_uses.is_empty() {
-                    let tc_list: Vec<Value> = tool_uses
-                        .iter()
-                        .map(|tu| {
-                            let default_input = Value::Object(Map::new());
-                            let args = tu.get("input").unwrap_or(&default_input);
-                            let args_str = if args.is_object() {
-                                serde_json::to_string(args).unwrap_or_default()
-                            } else {
-                                args.to_string()
-                            };
-                            json!({
-                                "id": tu.get("id").and_then(Value::as_str).unwrap_or_default(),
-                                "type": "function",
-                                "function": {
-                                    "name": tu.get("name").and_then(Value::as_str).unwrap_or_default(),
-                                    "arguments": args_str,
-                                }
-                            })
-                        })
-                        .collect();
-
-                    let content_val = if text_parts.is_empty() {
-                        Value::Null
-                    } else {
-                        Value::String(text_parts.join("\n"))
-                    };
-                    result.push(json!({
-                        "role": "assistant",
-                        "content": content_val,
-                        "tool_calls": tc_list,
-                    }));
-                } else if !text_parts.is_empty() {
-                    result.push(json!({"role": "assistant", "content": text_parts.join("\n")}));
-                } else {
-                    result.push(json!({"role": "assistant", "content": null}));
-                }
-            }
-            "user" => {
-                if !tool_results.is_empty() {
-                    if !text_parts.is_empty() {
-                        result.push(json!({"role": "user", "content": text_parts.join("\n")}));
-                    }
-                    for tr in &tool_results {
-                        let default_content = Value::String(String::new());
-                        let tr_content = tr.get("content").unwrap_or(&default_content);
-                        let content_str = flatten_content(tr_content);
-                        result.push(json!({
-                            "role": "tool",
-                            "tool_call_id": tr.get("tool_use_id").and_then(Value::as_str).unwrap_or_default(),
-                            "content": content_str,
-                        }));
-                    }
-                } else if !text_parts.is_empty() {
-                    result.push(json!({"role": "user", "content": text_parts.join("\n")}));
-                } else {
-                    result.push(json!({"role": "user", "content": ""}));
-                }
-            }
-            _ => {
-                // system or other
-                let text = if text_parts.is_empty() {
-                    String::new()
-                } else {
-                    text_parts.join("\n")
-                };
-                result.push(json!({"role": role, "content": text}));
-            }
-        }
+        convert_anthropic_role(role, &text_parts, &tool_uses, &tool_results, &mut result);
     }
 
     result
+}
+
+fn convert_anthropic_role(
+    role: &str,
+    text_parts: &[String],
+    tool_uses: &[&Value],
+    tool_results: &[&Value],
+    result: &mut Vec<Value>,
+) {
+    match role {
+        "assistant" => {
+            if !tool_uses.is_empty() {
+                let tc_list: Vec<Value> = tool_uses
+                    .iter()
+                    .map(|tu| {
+                        let default_input = Value::Object(Map::new());
+                        let args = tu.get("input").unwrap_or(&default_input);
+                        let args_str = if args.is_object() {
+                            serde_json::to_string(args).unwrap_or_default()
+                        } else {
+                            args.to_string()
+                        };
+                        json!({
+                            "id": tu.get("id").and_then(Value::as_str).unwrap_or_default(),
+                            "type": "function",
+                            "function": {
+                                "name": tu.get("name").and_then(Value::as_str).unwrap_or_default(),
+                                "arguments": args_str,
+                            }
+                        })
+                    })
+                    .collect();
+
+                let content_val = if text_parts.is_empty() {
+                    Value::Null
+                } else {
+                    Value::String(text_parts.join("\n"))
+                };
+                result.push(json!({
+                    "role": "assistant",
+                    "content": content_val,
+                    "tool_calls": tc_list,
+                }));
+            } else if !text_parts.is_empty() {
+                result.push(json!({"role": "assistant", "content": text_parts.join("\n")}));
+            } else {
+                result.push(json!({"role": "assistant", "content": null}));
+            }
+        }
+        "user" => {
+            if !tool_results.is_empty() {
+                if !text_parts.is_empty() {
+                    result.push(json!({"role": "user", "content": text_parts.join("\n")}));
+                }
+                for tr in tool_results {
+                    let default_content = Value::String(String::new());
+                    let tr_content = tr.get("content").unwrap_or(&default_content);
+                    let content_str = flatten_content(tr_content);
+                    result.push(json!({
+                        "role": "tool",
+                        "tool_call_id": tr.get("tool_use_id").and_then(Value::as_str).unwrap_or_default(),
+                        "content": content_str,
+                    }));
+                }
+            } else if !text_parts.is_empty() {
+                result.push(json!({"role": "user", "content": text_parts.join("\n")}));
+            } else {
+                result.push(json!({"role": "user", "content": ""}));
+            }
+        }
+        _ => {
+            let text = if text_parts.is_empty() {
+                String::new()
+            } else {
+                text_parts.join("\n")
+            };
+            result.push(json!({"role": role, "content": text}));
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -396,9 +403,8 @@ fn responses_normalize_input(data: &Value) -> Vec<Value> {
 }
 
 fn responses_inject_hint(data: &mut Value, hint_text: &str) {
-    let obj = match data.as_object_mut() {
-        Some(o) => o,
-        None => return,
+    let Some(obj) = data.as_object_mut() else {
+        return;
     };
     let existing = obj
         .get("instructions")
@@ -414,9 +420,8 @@ fn responses_inject_hint(data: &mut Value, hint_text: &str) {
 }
 
 fn responses_extract_tool_calls(response: &Value) -> Vec<ToolCall> {
-    let output = match response.get("output").and_then(Value::as_array) {
-        Some(o) => o,
-        None => return Vec::new(),
+    let Some(output) = response.get("output").and_then(Value::as_array) else {
+        return Vec::new();
     };
     extract_from_responses_output(output)
 }
@@ -434,21 +439,14 @@ fn convert_responses_items(items: &[Value]) -> Vec<Value> {
     };
 
     for item in items {
-        let item_type = item
-            .get("type")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
+        let item_type = item.get("type").and_then(Value::as_str).unwrap_or_default();
 
         match item_type {
             "message" => {
                 flush(&mut pending_tool_calls, &mut messages);
-                let content = flatten_content(
-                    item.get("content").unwrap_or(&Value::String(String::new())),
-                );
-                let role = item
-                    .get("role")
-                    .and_then(Value::as_str)
-                    .unwrap_or("user");
+                let content =
+                    flatten_content(item.get("content").unwrap_or(&Value::String(String::new())));
+                let role = item.get("role").and_then(Value::as_str).unwrap_or("user");
                 messages.push(json!({"role": role, "content": content}));
             }
             "function_call" => {
@@ -481,10 +479,7 @@ fn convert_responses_items(items: &[Value]) -> Vec<Value> {
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .to_string();
-                let name = call_id_to_name
-                    .get(&call_id)
-                    .cloned()
-                    .unwrap_or_default();
+                let name = call_id_to_name.get(&call_id).cloned().unwrap_or_default();
                 messages.push(json!({
                     "role": "tool",
                     "tool_call_id": call_id,
@@ -492,7 +487,7 @@ fn convert_responses_items(items: &[Value]) -> Vec<Value> {
                     "content": item.get("output").and_then(Value::as_str).unwrap_or_default(),
                 }));
             }
-            "item_reference" => continue,
+            "item_reference" => {}
             _ => {
                 warn!(item_type = item_type, "unknown_responses_item_type");
             }
@@ -530,14 +525,15 @@ fn flatten_content(content: &Value) -> String {
             let parts: Vec<String> = arr
                 .iter()
                 .filter_map(|block| {
-                    if let Some(obj) = block.as_object() {
-                        obj.get("text")
-                            .and_then(Value::as_str)
-                            .filter(|t| !t.is_empty())
-                            .map(String::from)
-                    } else {
-                        block.as_str().map(String::from)
-                    }
+                    block.as_object().map_or_else(
+                        || block.as_str().map(String::from),
+                        |obj| {
+                            obj.get("text")
+                                .and_then(Value::as_str)
+                                .filter(|t| !t.is_empty())
+                                .map(String::from)
+                        },
+                    )
                 })
                 .collect();
             parts.join("\n")
@@ -547,9 +543,8 @@ fn flatten_content(content: &Value) -> String {
 }
 
 fn extract_from_chat_choices(choices: &[Value]) -> Vec<ToolCall> {
-    let first = match choices.first() {
-        Some(c) => c,
-        None => return Vec::new(),
+    let Some(first) = choices.first() else {
+        return Vec::new();
     };
     let message = first.get("message").unwrap_or(first);
     let raw_calls = match message.get("tool_calls").and_then(Value::as_array) {
@@ -572,9 +567,7 @@ fn extract_from_chat_choices(choices: &[Value]) -> Vec<ToolCall> {
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .into(),
-                arguments: parse_arguments(
-                    func.get("arguments").unwrap_or(&json!("{}")),
-                ),
+                arguments: parse_arguments(func.get("arguments").unwrap_or(&EMPTY_ARGS_STR)),
             }
         })
         .collect()
@@ -598,9 +591,7 @@ fn extract_from_responses_output(output: &[Value]) -> Vec<ToolCall> {
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .into(),
-                arguments: parse_arguments(
-                    item.get("arguments").unwrap_or(&json!("{}")),
-                ),
+                arguments: parse_arguments(item.get("arguments").unwrap_or(&EMPTY_ARGS_STR)),
             }
         })
         .collect()

@@ -3,9 +3,9 @@
 
 //! Tool call analysis: determine required capabilities and taint.
 
-use std::collections::BTreeSet;
 use regex::Regex;
 use serde_json::Value;
+use std::collections::BTreeSet;
 use tracing::warn;
 
 use crate::bash_ast::BashAstClient;
@@ -36,10 +36,8 @@ pub struct AnalysisResult {
 // ---------------------------------------------------------------------------
 
 static URL_PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(
-        r"(?:https?://[^\s]+|(?:[a-zA-Z0-9-]{1,63}\.){1,10}[a-zA-Z]{2,63}(?:/[^\s]*)?)",
-    )
-    .unwrap()
+    Regex::new(r"(?:https?://[^\s]+|(?:[a-zA-Z0-9-]{1,63}\.){1,10}[a-zA-Z]{2,63}(?:/[^\s]*)?)")
+        .unwrap()
 });
 
 const MAX_URL_SCAN_LENGTH: usize = 4096;
@@ -84,14 +82,15 @@ fn ast_has_dev_tcp_redirect(ast: &Value) -> bool {
     // Check words
     if let Some(words) = ast.get("words").and_then(Value::as_array) {
         for word in words {
-            let text = if let Some(s) = word.as_str() {
-                s.to_string()
-            } else {
-                word.get("text")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_string()
-            };
+            let text = word.as_str().map_or_else(
+                || {
+                    word.get("text")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string()
+                },
+                std::string::ToString::to_string,
+            );
             if text.contains("/dev/tcp") || text.contains("/dev/udp") {
                 return true;
             }
@@ -101,9 +100,11 @@ fn ast_has_dev_tcp_redirect(ast: &Value) -> bool {
     // Recurse into children
     for key in &["left", "right", "body", "condition", "then", "else"] {
         if let Some(child) = ast.get(*key)
-            && child.is_object() && ast_has_dev_tcp_redirect(child) {
-                return true;
-            }
+            && child.is_object()
+            && ast_has_dev_tcp_redirect(child)
+        {
+            return true;
+        }
     }
 
     for key in &["commands", "items"] {
@@ -126,14 +127,15 @@ fn flatten_ast_words(ast: &Value) -> Vec<String> {
             words
                 .iter()
                 .map(|w| {
-                    if let Some(s) = w.as_str() {
-                        s.to_string()
-                    } else {
-                        w.get("text")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default()
-                            .to_string()
-                    }
+                    w.as_str().map_or_else(
+                        || {
+                            w.get("text")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default()
+                                .to_string()
+                        },
+                        std::string::ToString::to_string,
+                    )
                 })
                 .collect()
         })
@@ -141,10 +143,7 @@ fn flatten_ast_words(ast: &Value) -> Vec<String> {
 }
 
 fn convert_ast_for_reversibility(ast: &Value) -> Value {
-    let node_type = ast
-        .get("type")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
+    let node_type = ast.get("type").and_then(Value::as_str).unwrap_or_default();
 
     match node_type {
         "simple" => {
@@ -158,7 +157,11 @@ fn convert_ast_for_reversibility(ast: &Value) -> Value {
             let commands = ast
                 .get("commands")
                 .and_then(Value::as_array)
-                .map(|c| c.iter().map(convert_ast_for_reversibility).collect::<Vec<_>>())
+                .map(|c| {
+                    c.iter()
+                        .map(convert_ast_for_reversibility)
+                        .collect::<Vec<_>>()
+                })
                 .unwrap_or_default();
             serde_json::json!({
                 "type": "pipeline",
@@ -174,9 +177,10 @@ fn convert_ast_for_reversibility(ast: &Value) -> Value {
                 commands.push(convert_ast_for_reversibility(right));
             }
             if commands.is_empty()
-                && let Some(cmds) = ast.get("commands").and_then(Value::as_array) {
-                    commands.extend(cmds.iter().map(convert_ast_for_reversibility));
-                }
+                && let Some(cmds) = ast.get("commands").and_then(Value::as_array)
+            {
+                commands.extend(cmds.iter().map(convert_ast_for_reversibility));
+            }
             serde_json::json!({
                 "type": "command_list",
                 "commands": commands,
@@ -187,10 +191,7 @@ fn convert_ast_for_reversibility(ast: &Value) -> Value {
 }
 
 fn subcmd_has_network_code(subcmd: Option<&str>) -> bool {
-    match subcmd {
-        None => false,
-        Some(s) => NETWORK_CODE_INDICATORS.iter().any(|ind| s.contains(ind)),
-    }
+    subcmd.is_some_and(|s| NETWORK_CODE_INDICATORS.iter().any(|ind| s.contains(ind)))
 }
 
 // ---------------------------------------------------------------------------
@@ -250,8 +251,7 @@ async fn analyze_bash_command(
             }
             let urls = extract_urls(&all_words);
 
-            let approved =
-                !urls.is_empty() && urls.iter().all(|u| policy.is_endpoint_approved(u));
+            let approved = !urls.is_empty() && urls.iter().all(|u| policy.is_endpoint_approved(u));
 
             if approved {
                 capabilities.insert(Capability::NetworkEgressApproved);
@@ -269,7 +269,6 @@ async fn analyze_bash_command(
             if subcmd_has_network_code(subcmd.as_deref()) {
                 capabilities.insert(Capability::NetworkEgress);
             }
-            continue;
         }
     }
 
@@ -291,8 +290,8 @@ async fn analyze_bash_command(
     }
 
     // Step 7: Sandboxing logic
-    let both_flags = taint.contains(&TaintFlag::HasPrivateData)
-        && taint.contains(&TaintFlag::HasUntrustedInput);
+    let both_flags =
+        taint.contains(&TaintFlag::HasPrivateData) && taint.contains(&TaintFlag::HasUntrustedInput);
 
     if both_flags
         && capabilities.contains(&Capability::ExecArbitrary)
@@ -350,6 +349,10 @@ fn analyze_non_bash_tool(tool_call: &ToolCall, policy: &Policy) -> AnalysisResul
 // ---------------------------------------------------------------------------
 
 /// Analyze a single tool call.
+///
+/// # Errors
+///
+/// Returns `SidecarError` if the bash-ast client is unavailable or fails.
 pub async fn analyze_tool_call(
     tool_call: &ToolCall,
     policy: &Policy,

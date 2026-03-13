@@ -34,6 +34,7 @@ pub fn sample_policy() -> Policy {
 }
 
 /// Create a sample sidecar config for testing.
+#[allow(dead_code)]
 pub fn sample_config() -> SidecarConfig {
     SidecarConfig {
         backend: BackendConfig {

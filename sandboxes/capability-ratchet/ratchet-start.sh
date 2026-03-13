@@ -23,7 +23,7 @@ SIDECAR_PID=$!
 
 # Wait for sidecar to be ready
 echo "Waiting for capability ratchet sidecar to start..."
-for i in $(seq 1 50); do
+for _i in $(seq 1 50); do
     if curl -sf http://127.0.0.1:4001/health > /dev/null 2>&1; then
         break
     fi

@@ -1,6 +1,6 @@
 # Capability Ratchet Sandbox
 
-A OpenShell sandbox that prevents AI agent data exfiltration through dynamic capability ratcheting.
+An OpenShell sandbox that prevents AI agent data exfiltration through dynamic capability ratcheting.
 
 ## What's Included
 

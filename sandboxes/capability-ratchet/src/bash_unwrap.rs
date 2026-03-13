@@ -17,6 +17,9 @@ use crate::bash_ast::BashAstClient;
 use crate::constants::SHELLS;
 use crate::error::SidecarError;
 
+/// Result type for command extraction: a list of (command, optional subcommand) pairs.
+type ExtractResult<'a> = BoxFuture<'a, Result<Vec<(String, Option<String>)>, SidecarError>>;
+
 // ---------------------------------------------------------------------------
 // xargs flags that consume a following argument
 // ---------------------------------------------------------------------------
@@ -48,20 +51,23 @@ fn strip_quotes(s: &str) -> &str {
 fn word_text(word: &Value) -> String {
     // bash-ast canonical field
     if let Some(w) = word.get("word").and_then(Value::as_str)
-        && !w.is_empty() {
-            return strip_quotes(w).to_string();
-        }
+        && !w.is_empty()
+    {
+        return strip_quotes(w).to_string();
+    }
     if let Some(t) = word.get("text").and_then(Value::as_str)
-        && !t.is_empty() {
-            return strip_quotes(t).to_string();
-        }
+        && !t.is_empty()
+    {
+        return strip_quotes(t).to_string();
+    }
     // Parts-based word
     if let Some(parts) = word.get("parts").and_then(Value::as_array) {
         for part in parts {
             if let Some(t) = part.get("type").and_then(Value::as_str)
-                && (t == "variable" || t == "parameter_expansion") {
-                    return "$VARIABLE".into();
-                }
+                && (t == "variable" || t == "parameter_expansion")
+            {
+                return "$VARIABLE".into();
+            }
         }
         return parts
             .iter()
@@ -121,10 +127,7 @@ fn find_dash_c_script(words: &[Value]) -> Option<String> {
         }
 
         // Combined flags like -ic, -lc, etc.
-        if text.starts_with('-')
-            && !text.starts_with("--")
-            && text.len() > 2
-            && text.ends_with('c')
+        if text.starts_with('-') && !text.starts_with("--") && text.len() > 2 && text.ends_with('c')
         {
             return words.get(i + 1).map(word_text);
         }
@@ -164,17 +167,14 @@ pub fn unwrap_and_extract<'a>(
     client: &'a BashAstClient,
     max_depth: usize,
     depth: usize,
-) -> BoxFuture<'a, Result<Vec<(String, Option<String>)>, SidecarError>> {
+) -> ExtractResult<'a> {
     Box::pin(async move {
         if depth >= max_depth {
             warn!(depth = depth, "bash_unwrap_max_depth");
             return Ok(Vec::new());
         }
 
-        let node_type = ast
-            .get("type")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
+        let node_type = ast.get("type").and_then(Value::as_str).unwrap_or_default();
 
         match node_type {
             "simple" => handle_simple(ast, client, max_depth, depth).await,
@@ -232,11 +232,10 @@ pub fn unwrap_and_extract<'a>(
             "empty" => Ok(Vec::new()),
             _ => {
                 // Unknown type: try to extract words if present
-                if let Some(words) = ast.get("words").and_then(Value::as_array) {
-                    Ok(vec![extract_subcommand(words)])
-                } else {
-                    Ok(Vec::new())
-                }
+                Ok(ast
+                    .get("words")
+                    .and_then(Value::as_array)
+                    .map_or_else(Vec::new, |words| vec![extract_subcommand(words)]))
             }
         }
     })
@@ -262,10 +261,11 @@ async fn handle_simple(
 
     // Check if this is a shell with -c
     if SHELLS.contains(base_cmd.as_str())
-        && let Some(script) = find_dash_c_script(words) {
-            let inner_ast = client.parse(&script).await?;
-            return unwrap_and_extract(&inner_ast, client, max_depth, depth + 1).await;
-        }
+        && let Some(script) = find_dash_c_script(words)
+    {
+        let inner_ast = client.parse(&script).await?;
+        return unwrap_and_extract(&inner_ast, client, max_depth, depth + 1).await;
+    }
 
     // eval: re-parse concatenated arguments as shell code
     if base_cmd == "eval" {

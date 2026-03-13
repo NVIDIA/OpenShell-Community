@@ -73,10 +73,7 @@ fn make_sandbox_words() -> Result<Vec<Value>, SidecarError> {
             make_word("-p", None),
             make_word(MACOS_SANDBOX_PROFILE, Some(SINGLEQUOTE_FLAG)),
         ]),
-        "linux" => Ok(vec![
-            make_word("unshare", None),
-            make_word("--net", None),
-        ]),
+        "linux" => Ok(vec![make_word("unshare", None), make_word("--net", None)]),
         p => Err(SidecarError::Config(format!(
             "No sandbox available for platform: {p}"
         ))),
@@ -88,14 +85,15 @@ fn make_sandbox_words() -> Result<Vec<Value>, SidecarError> {
 // ---------------------------------------------------------------------------
 
 /// Rewrite AST to wrap in network sandbox, return bash string.
+///
+/// # Errors
+///
+/// Returns `SidecarError` if sandboxing is unavailable or the AST conversion fails.
 pub async fn sandbox_command_ast(
     ast: &Value,
     client: &BashAstClient,
 ) -> Result<String, SidecarError> {
-    let node_type = ast
-        .get("type")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
+    let node_type = ast.get("type").and_then(Value::as_str).unwrap_or_default();
 
     if node_type == "simple" {
         sandbox_simple(ast, client).await

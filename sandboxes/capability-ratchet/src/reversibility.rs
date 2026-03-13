@@ -75,12 +75,14 @@ static DOCKER_REVERSIBLE: std::sync::LazyLock<HashSet<&str>> = std::sync::LazyLo
         .collect()
 });
 
-static PKG_PUBLISH: std::sync::LazyLock<HashSet<&str>> = std::sync::LazyLock::new(|| ["npm", "cargo"].into_iter().collect());
+static PKG_PUBLISH: std::sync::LazyLock<HashSet<&str>> =
+    std::sync::LazyLock::new(|| ["npm", "cargo"].into_iter().collect());
 
 static DESTRUCTIVE_SQL: std::sync::LazyLock<HashSet<&str>> =
     std::sync::LazyLock::new(|| ["drop", "delete", "truncate"].into_iter().collect());
 
-static SAFE_SQL: std::sync::LazyLock<HashSet<&str>> = std::sync::LazyLock::new(|| ["select", "show"].into_iter().collect());
+static SAFE_SQL: std::sync::LazyLock<HashSet<&str>> =
+    std::sync::LazyLock::new(|| ["select", "show"].into_iter().collect());
 
 static INTERPRETER_NETWORK: std::sync::LazyLock<HashSet<&str>> = std::sync::LazyLock::new(|| {
     ["requests", "urllib", "httplib", "socket", "http.client"]
@@ -88,11 +90,12 @@ static INTERPRETER_NETWORK: std::sync::LazyLock<HashSet<&str>> = std::sync::Lazy
         .collect()
 });
 
-static INTERPRETER_DESTRUCTIVE: std::sync::LazyLock<HashSet<&str>> = std::sync::LazyLock::new(|| {
-    ["os.remove", "os.unlink", "shutil.rmtree"]
-        .into_iter()
-        .collect()
-});
+static INTERPRETER_DESTRUCTIVE: std::sync::LazyLock<HashSet<&str>> =
+    std::sync::LazyLock::new(|| {
+        ["os.remove", "os.unlink", "shutil.rmtree"]
+            .into_iter()
+            .collect()
+    });
 
 // ---------------------------------------------------------------------------
 // Internal dispatch
@@ -128,7 +131,10 @@ fn classify_simple(node: &Value) -> (Reversibility, String) {
         return (Reversibility::Unknown, format!("variable command: {cmd}"));
     }
     if IRREVERSIBLE_CMDS.contains(cmd) {
-        return (Reversibility::Irreversible, format!("{cmd} is irreversible"));
+        return (
+            Reversibility::Irreversible,
+            format!("{cmd} is irreversible"),
+        );
     }
     if REVERSIBLE_CMDS.contains(cmd) {
         return (Reversibility::Reversible, format!("{cmd} is reversible"));
@@ -146,7 +152,10 @@ fn classify_simple(node: &Value) -> (Reversibility, String) {
             if PKG_PUBLISH.contains(cmd) {
                 classify_package_manager(cmd, &words[1..])
             } else {
-                (Reversibility::Unknown, format!("unrecognized command: {cmd}"))
+                (
+                    Reversibility::Unknown,
+                    format!("unrecognized command: {cmd}"),
+                )
             }
         }
     }
@@ -258,7 +267,10 @@ fn classify_database(cmd: &str, args: &[String]) -> (Reversibility, String) {
                     );
                 }
             }
-            (Reversibility::Unknown, format!("{cmd} with unrecognized SQL"))
+            (
+                Reversibility::Unknown,
+                format!("{cmd} with unrecognized SQL"),
+            )
         }
     }
 }
@@ -300,7 +312,10 @@ fn classify_pip(args: &[String]) -> (Reversibility, String) {
         return (Reversibility::Unknown, "bare pip".into());
     }
     if args[0] == "install" {
-        return (Reversibility::Reversible, "pip install is reversible".into());
+        return (
+            Reversibility::Reversible,
+            "pip install is reversible".into(),
+        );
     }
     (
         Reversibility::Unknown,
@@ -403,10 +418,7 @@ fn classify_list(node: &Value) -> (Reversibility, String) {
 }
 
 fn classify_node(node: &Value) -> (Reversibility, String) {
-    let node_type = node
-        .get("type")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
+    let node_type = node.get("type").and_then(Value::as_str).unwrap_or_default();
 
     match node_type {
         "simple_command" => classify_simple(node),

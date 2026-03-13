@@ -39,9 +39,8 @@ fn build_tool_call_map(
         if msg.get("role").and_then(Value::as_str) != Some("assistant") {
             continue;
         }
-        let tool_calls = match msg.get("tool_calls").and_then(Value::as_array) {
-            Some(tc) => tc,
-            None => continue,
+        let Some(tool_calls) = msg.get("tool_calls").and_then(Value::as_array) else {
+            continue;
         };
         for tc in tool_calls {
             let call_id = tc
@@ -69,10 +68,7 @@ fn shlex_fallback(command: &str) -> Vec<(String, Option<String>)> {
         Ok(tokens) if tokens.is_empty() => Vec::new(),
         Ok(tokens) => {
             let cmd = tokens[0].clone();
-            let subcmd = tokens[1..]
-                .iter()
-                .find(|t| !t.starts_with('-'))
-                .cloned();
+            let subcmd = tokens[1..].iter().find(|t| !t.starts_with('-')).cloned();
             vec![(cmd, subcmd)]
         }
         Err(_) => {
@@ -90,10 +86,14 @@ async fn resolve_bash_command(
     let mut taint = BTreeSet::new();
 
     let pairs = if let Some(client) = bash_ast {
-        if let Ok(ast) = client.parse(command).await { if let Ok(p) = unwrap_and_extract(&ast, client, 5, 0).await { p } else {
-            debug!(command = command, "bash_unwrap_fallback");
-            shlex_fallback(command)
-        } } else {
+        if let Ok(ast) = client.parse(command).await {
+            unwrap_and_extract(&ast, client, 5, 0)
+                .await
+                .unwrap_or_else(|_| {
+                    debug!(command = command, "bash_unwrap_fallback");
+                    shlex_fallback(command)
+                })
+        } else {
             debug!(command = command, "bash_ast_fallback");
             shlex_fallback(command)
         }

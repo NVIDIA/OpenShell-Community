@@ -12,6 +12,14 @@ use crate::config::BackendConfig;
 use crate::error::SidecarError;
 
 /// Forward an inference request to the real backend.
+///
+/// # Errors
+///
+/// Returns `SidecarError` if the HTTP request fails or the backend returns a non-success status.
+///
+/// # Panics
+///
+/// Panics if `request_data` is not a JSON object.
 pub async fn forward_to_backend(
     request_data: &Value,
     config: &BackendConfig,

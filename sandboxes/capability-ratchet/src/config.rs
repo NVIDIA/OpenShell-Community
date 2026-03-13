@@ -68,24 +68,25 @@ struct RawConfig {
 
 impl SidecarConfig {
     /// Load configuration from a YAML file.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SidecarError` if the file cannot be read or parsed.
     pub fn from_yaml(path: &Path) -> Result<Self, SidecarError> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| SidecarError::Config(format!("cannot read {}: {e}", path.display())))?;
         let raw: RawConfig = serde_yaml::from_str(&content)?;
-        Self::from_raw(raw)
+        Ok(Self::from_raw(raw))
     }
 
-    fn from_raw(raw: RawConfig) -> Result<Self, SidecarError> {
+    fn from_raw(raw: RawConfig) -> Self {
         let upstream = raw.upstream.unwrap_or(RawUpstream {
             url: None,
             api_key_env: None,
             model: None,
         });
 
-        let api_key_env = upstream
-            .api_key_env
-            .as_deref()
-            .unwrap_or("API_KEY");
+        let api_key_env = upstream.api_key_env.as_deref().unwrap_or("API_KEY");
         let api_key = std::env::var(api_key_env).unwrap_or_default();
 
         let backend = BackendConfig {
@@ -105,7 +106,7 @@ impl SidecarConfig {
             port: listen_raw.port.unwrap_or(4001),
         };
 
-        Ok(Self {
+        Self {
             backend,
             policy_file: PathBuf::from(
                 raw.policy_file.unwrap_or_else(|| "/app/policy.yaml".into()),
@@ -113,6 +114,6 @@ impl SidecarConfig {
             listen,
             bash_ast_socket: raw.bash_ast_socket,
             shadow_mode: raw.shadow_mode.unwrap_or(false),
-        })
+        }
     }
 }

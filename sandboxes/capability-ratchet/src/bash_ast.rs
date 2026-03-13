@@ -8,7 +8,7 @@
 //!   Response: `{"result":{...ast...}}\n`
 //!   Error:    `{"error":"message"}\n`
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::Mutex;
@@ -76,17 +76,21 @@ impl BashAstClient {
         }
 
         let mut response_line = String::new();
-        let bytes_read = conn.reader.read_line(&mut response_line).await.map_err(|e| {
-            *guard = None;
-            SidecarError::BashAst(format!("Connection lost: {e}"))
-        })?;
+        let bytes_read = conn
+            .reader
+            .read_line(&mut response_line)
+            .await
+            .map_err(|e| {
+                *guard = None;
+                SidecarError::BashAst(format!("Connection lost: {e}"))
+            })?;
 
         if bytes_read == 0 {
             *guard = None;
-            return Err(SidecarError::BashAst(
-                "Server closed the connection".into(),
-            ));
+            return Err(SidecarError::BashAst("Server closed the connection".into()));
         }
+
+        drop(guard);
 
         let response: Value = serde_json::from_str(&response_line)
             .map_err(|e| SidecarError::BashAst(format!("Invalid JSON from server: {e}")))?;
@@ -99,6 +103,10 @@ impl BashAstClient {
     }
 
     /// Parse a bash script string into an AST.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SidecarError` if the connection fails or the server returns an error.
     pub async fn parse(&self, script: &str) -> Result<Value, SidecarError> {
         if script.is_empty() || script.trim().is_empty() {
             return Ok(serde_json::json!({"type": "empty"}));
@@ -111,10 +119,14 @@ impl BashAstClient {
         Ok(response
             .get("result")
             .cloned()
-            .unwrap_or(Value::Object(Default::default())))
+            .unwrap_or_else(|| Value::Object(Map::default())))
     }
 
     /// Convert an AST back into a bash script string.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SidecarError` if the connection fails or the server returns an error.
     pub async fn to_bash(&self, ast: &Value) -> Result<String, SidecarError> {
         let response = self
             .send_request(&serde_json::json!({"method": "to_bash", "ast": ast}))
@@ -136,8 +148,7 @@ impl BashAstClient {
 
     /// Close the connection.
     pub async fn close(&self) {
-        let mut guard = self.inner.lock().await;
-        *guard = None;
+        *self.inner.lock().await = None;
         debug!("bash-ast connection closed");
     }
 }

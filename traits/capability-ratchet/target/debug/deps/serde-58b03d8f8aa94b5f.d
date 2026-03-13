@@ -1,0 +1,12 @@
+/Users/aerickson/Documents/Claude Code Projects/OpenShell-Community/traits/capability-ratchet/target/debug/deps/serde-58b03d8f8aa94b5f.d: /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/aerickson/Documents/Claude\ Code\ Projects/OpenShell-Community/traits/capability-ratchet/target/debug/build/serde-2beb76a2a4a45d11/out/private.rs
+
+/Users/aerickson/Documents/Claude Code Projects/OpenShell-Community/traits/capability-ratchet/target/debug/deps/libserde-58b03d8f8aa94b5f.rmeta: /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/aerickson/Documents/Claude\ Code\ Projects/OpenShell-Community/traits/capability-ratchet/target/debug/build/serde-2beb76a2a4a45d11/out/private.rs
+
+/Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/aerickson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/aerickson/Documents/Claude\ Code\ Projects/OpenShell-Community/traits/capability-ratchet/target/debug/build/serde-2beb76a2a4a45d11/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/aerickson/Documents/Claude Code Projects/OpenShell-Community/traits/capability-ratchet/target/debug/build/serde-2beb76a2a4a45d11/out

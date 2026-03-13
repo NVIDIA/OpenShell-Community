@@ -21,8 +21,8 @@ pub fn get_forbidden(taint: &BTreeSet<TaintFlag>) -> BTreeSet<Capability> {
 
     match (has_private, has_untrusted) {
         (false, false) => BTreeSet::new(),
-        (true, false) => [Capability::NetworkEgress].into_iter().collect(),
-        (false, true) => [Capability::ExecIrreversible].into_iter().collect(),
+        (true, false) => std::iter::once(Capability::NetworkEgress).collect(),
+        (false, true) => std::iter::once(Capability::ExecIrreversible).collect(),
         (true, true) => [
             Capability::NetworkEgress,
             Capability::ExecArbitrary,

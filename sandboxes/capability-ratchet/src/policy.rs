@@ -112,6 +112,10 @@ impl Policy {
     }
 
     /// Load a policy from a YAML file.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SidecarError` if the file cannot be read or the YAML is invalid.
     pub fn from_yaml(path: &Path) -> Result<Self, SidecarError> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| SidecarError::Config(format!("cannot read {}: {e}", path.display())))?;
@@ -120,12 +124,20 @@ impl Policy {
     }
 
     /// Build a Policy from a `serde_json::Value`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SidecarError` if the policy data is invalid.
     pub fn from_value(data: &Value) -> Result<Self, SidecarError> {
         validate_policy(data)?;
 
         let version = data
             .get("version")
-            .and_then(|v| v.as_str().map(String::from).or_else(|| v.as_f64().map(|n| n.to_string())))
+            .and_then(|v| {
+                v.as_str()
+                    .map(String::from)
+                    .or_else(|| v.as_f64().map(|n| n.to_string()))
+            })
             .unwrap_or_else(|| "2.0".into());
 
         let name = data
@@ -216,7 +228,8 @@ impl Policy {
 // Validation
 // ---------------------------------------------------------------------------
 
-const KNOWN_TOP_LEVEL_KEYS: &[&str] = &["version", "name", "tools", "knownSafe", "approvedEndpoints"];
+const KNOWN_TOP_LEVEL_KEYS: &[&str] =
+    &["version", "name", "tools", "knownSafe", "approvedEndpoints"];
 
 fn validate_policy(data: &Value) -> Result<(), SidecarError> {
     if let Some(obj) = data.as_object() {
@@ -248,19 +261,23 @@ fn validate_policy(data: &Value) -> Result<(), SidecarError> {
 
         // knownSafe must be a list
         if let Some(ks) = obj.get("knownSafe")
-            && !ks.is_array() && !ks.is_null() {
-                return Err(SidecarError::PolicyValidation(
-                    "'knownSafe' must be a list".into(),
-                ));
-            }
+            && !ks.is_array()
+            && !ks.is_null()
+        {
+            return Err(SidecarError::PolicyValidation(
+                "'knownSafe' must be a list".into(),
+            ));
+        }
 
         // approvedEndpoints must be a list
         if let Some(ep) = obj.get("approvedEndpoints")
-            && !ep.is_array() && !ep.is_null() {
-                return Err(SidecarError::PolicyValidation(
-                    "'approvedEndpoints' must be a list".into(),
-                ));
-            }
+            && !ep.is_array()
+            && !ep.is_null()
+        {
+            return Err(SidecarError::PolicyValidation(
+                "'approvedEndpoints' must be a list".into(),
+            ));
+        }
     }
     Ok(())
 }
@@ -276,6 +293,10 @@ fn extract_hostname(url_or_host: &str) -> String {
             .and_then(|u| u.host_str().map(String::from))
             .unwrap_or_else(|| url_or_host.to_string())
     } else {
-        url_or_host.split('/').next().unwrap_or(url_or_host).to_string()
+        url_or_host
+            .split('/')
+            .next()
+            .unwrap_or(url_or_host)
+            .to_string()
     }
 }
