@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Capability Ratchet Sandbox
 
 An OpenShell sandbox that prevents AI agent data exfiltration through dynamic capability ratcheting.

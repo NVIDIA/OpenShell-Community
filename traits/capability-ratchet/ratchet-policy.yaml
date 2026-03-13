@@ -57,8 +57,7 @@ approvedEndpoints:
   - "gitlab.com"
   - "*.nvidia.com"
 
-# Additional known-safe commands (merged with built-in list)
-knownSafe:
-  - outlook-cli
-  - calendar-cli
-  - confluence-cli
+# Additional known-safe commands (merged with built-in list).
+# Note: tools listed under `tools:` above don't need to be here —
+# they already resolve at step 1/2, before knownSafe (step 3).
+knownSafe: []

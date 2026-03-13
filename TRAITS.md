@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Sandbox Traits
 
 Traits are cross-cutting capabilities you add to any OpenShell sandbox. A trait is **not** a sandbox — it's a property you compose into one.
@@ -91,7 +94,7 @@ COPY --from=${RATCHET_IMAGE} /app/policy.yaml /app/
 RUN mkdir -p /sandbox/.ratchet && chown sandbox:sandbox /sandbox/.ratchet
 
 # --- OpenClaw setup ---
-RUN npm install -g @anthropic/openclaw-cli
+RUN npm install -g openclaw
 
 COPY entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
