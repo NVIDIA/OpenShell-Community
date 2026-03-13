@@ -18,7 +18,7 @@ docker build -t openshell-openclaw .
 To build against a specific base image:
 
 ```bash
-docker build -t openshell-openclaw --build-arg BASE_IMAGE=openshell/sandbox:v0.1.0 .
+docker build -t openshell-openclaw --build-arg BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest .
 ```
 
 ## Usage

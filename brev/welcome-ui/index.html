@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenShell — Agent Sandbox</title>
+  <link rel="icon" type="image/svg+xml" href="/openshell-mark.svg">
+  <link rel="alternate icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <img class="topbar__logo" src="openshell-mark.svg" alt="OpenShell">
+      <span class="topbar__divider"></span>
+      <span class="topbar__title">OpenShell</span>
+      <span class="topbar__badge">Sandbox</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main">
+    <section class="hero">
+      <div class="hero__icon">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <h1 class="hero__heading">
+        Run Any AI Agent in<br>the <span>OpenShell Sandbox</span>
+      </h1>
+      <p class="hero__sub">
+        OpenShell lets any AI agent run in a secure sandbox with policy guardrails
+        the agent itself helps manage. One launchable, two paths.
+      </p>
+    </section>
+
+    <div class="cards">
+      <!-- Path 1: OpenClaw Web UI -->
+      <div class="card" id="card-openclaw">
+        <div class="card__icon">
+          <svg viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+        </div>
+        <div class="card__body">
+          <h2 class="card__title">Install OpenClaw</h2>
+          <p class="card__desc">Experience it first, learn later. One-click install of the OpenClaw coding agent with OpenShell safety policies, sandboxing, and model routing. Everything in one browser tab.</p>
+        </div>
+        <div class="card__footer">
+          Get started
+          <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+
+      <!-- Path 2: CLI / TUI -->
+      <div class="card" id="card-other">
+        <div class="card__icon">
+          <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+        </div>
+        <div class="card__body">
+          <h2 class="card__title">Other Agents</h2>
+          <p class="card__desc">Bring your own agent. Run Claude Code, OpenCode, DeepAgents, or your own framework. Manage policies via the OpenShell CLI and TUI from your laptop.</p>
+        </div>
+        <div class="card__footer">
+          View instructions
+          <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Path 1 Modal: Install OpenClaw -->
+  <div class="overlay" id="overlay-install" hidden>
+    <div class="modal modal--wide">
+      <div class="modal__header">
+        <h3 class="modal__title">Install OpenClaw</h3>
+        <button class="modal__close" id="close-install">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal__body" id="install-body">
+
+        <div id="install-main">
+          <!-- Zone A: Active user input — interactive from second zero -->
+          <div class="zone-input">
+            <p class="zone-input__desc">
+              Enter your NVIDIA API key below. Your secure sandbox is being
+              provisioned in the background so you'll be ready to go immediately.
+            </p>
+            <div class="form-field">
+              <label class="form-field__label" for="api-key-input">NVIDIA API Key</label>
+              <div class="form-field__row">
+                <input
+                  id="api-key-input"
+                  type="password"
+                  class="form-field__input"
+                  placeholder="nvapi-..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button type="button" class="form-field__toggle" id="toggle-key-vis" aria-label="Toggle visibility">
+                  <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <div class="form-field__footer">
+                <span class="form-field__hint" id="key-hint"></span>
+                <a class="form-field__help" href="https://build.nvidia.com/settings/api-keys" target="_blank" rel="noopener noreferrer">
+                  Get a key at build.nvidia.com
+                  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Zone B: Provisioning console — read-only system transparency -->
+          <div class="console" id="provision-console">
+            <div class="console__header">PROVISIONING STATUS</div>
+            <div class="console__body">
+              <div class="console__line" id="log-sandbox">
+                <span class="console__icon" id="log-sandbox-icon"></span>
+                <span class="console__text">Initializing secure OpenShell sandbox...</span>
+              </div>
+              <div class="console__line" id="log-gateway">
+                <span class="console__icon" id="log-gateway-icon"></span>
+                <span class="console__text">Launching OpenClaw agent gateway...</span>
+              </div>
+              <div class="console__line console__line--success" id="log-ready" hidden>
+                <span class="console__icon"></span>
+                <span class="console__text">Environment ready.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CTA button -->
+          <button class="btn btn--primary btn--launch" id="btn-launch" disabled>
+            <svg class="btn__spinner" viewBox="0 0 24 24" width="16" height="16" fill="none" id="btn-spinner" hidden style="display:none"><circle cx="12" cy="12" r="10" fill="none"/></svg>
+            <span id="btn-launch-label">Waiting for API key...</span>
+            <svg class="btn__external-icon" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+          </button>
+        </div>
+
+        <!-- Error state -->
+        <div id="install-step-error" hidden>
+          <div class="error-card">
+            <div class="error-card__icon">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="none"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+            </div>
+            <h4 class="error-card__title">Something went wrong</h4>
+            <p class="error-card__desc" id="error-message"></p>
+            <button class="btn btn--secondary" id="btn-retry">Try again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Path 2 Modal: rendered from other-agents.yaml -->
+  {{OTHER_AGENTS_MODAL}}
+
+  <!-- Footer -->
+  <footer class="footer">
+    OpenShell Sandbox &middot; NVIDIA
+  </footer>
+
+  <script src="app.js?v=12"></script>
+</body>
+</html>

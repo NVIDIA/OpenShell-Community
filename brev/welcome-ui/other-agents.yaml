@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Content definition for the "Other Agents" modal.
+# Edit this file instead of raw HTML — the server renders it automatically.
+#
+# Structure:
+#   title       - Modal heading
+#   intro       - Introductory paragraph (supports raw HTML)
+#   steps[]     - Numbered instruction sections
+#     title     - Section heading (auto-numbered)
+#     commands  - List of commands to show in the code block
+#                   string  → plain command
+#                   dict    → { cmd, comment (optional), id (optional) }
+#     copyable       - Show a copy-to-clipboard button (default: false)
+#     copy_button_id - HTML id for the copy button (for JS hooks)
+#     block_id       - HTML id for the code-block div (for JS hooks)
+#     description    - Paragraph below the code block (supports raw HTML)
+
+title: Bring Your Own Agent
+
+intro: >-
+  Connect from your laptop, create a sandbox, and run any agent inside it.
+  The OpenShell TUI on your machine surfaces policy recommendations from the agent.
+  You approve or deny &mdash; the sandbox boundary is never violated.
+
+steps:
+  - title: Install OpenShell CLI
+    commands:
+      - "curl -fsSL https://github.com/NVIDIA/OpenShell/releases/download/devel/install.sh | sh"
+    copyable: true
+
+  - title: Add the gateway
+    block_id: connect-cmd-block
+    commands:
+      - cmd: "openshell gateway add <loading...>"
+        id: connect-cmd
+    copy_button_id: copy-connect
+    copyable: true
+    description: >-
+      This will initiate a JWT auth flow in your browser.
+      Once authorized, you can run any OpenShell command against this deployment.
+
+  - title: Create a sandbox and run your agent
+    commands:
+      - comment: Claude Code
+        cmd: "openshell sandbox create -- claude"
+      - comment: OpenCode
+        cmd: "openshell sandbox create -- opencode"
+      - comment: Codex
+        cmd: "openshell sandbox create -- codex"
+
+  - title: Manage policies with the TUI
+    commands:
+      - openshell term
+    copyable: true
+    description: >-
+      When your agent hits a policy denial, it reads the policy, diagnoses the block,
+      and proposes an update. The TUI surfaces the recommendation:
+      <em>&ldquo;Your sandbox wants to connect to pypi.org. Recommended policy update:
+      [allow pypi.org:443]. Approve?&rdquo;</em>
+      You approve &mdash; the policy hot-reloads &mdash; the agent continues.

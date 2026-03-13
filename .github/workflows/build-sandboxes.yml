@@ -187,13 +187,39 @@ jobs:
           tags: localhost:5000/sandboxes/base:latest
           cache-from: type=gha,scope=base
 
+      - name: Determine parent sandbox
+        id: parent
+        run: |
+          set -euo pipefail
+          DEFAULT_BASE=$(grep '^ARG BASE_IMAGE=' "sandboxes/${{ matrix.sandbox }}/Dockerfile" | head -1 | cut -d= -f2-)
+          PARENT=$(echo "$DEFAULT_BASE" | sed -n 's|.*/sandboxes/\([^:]*\).*|\1|p')
+          if [ -z "$PARENT" ]; then
+            PARENT="base"
+          fi
+          echo "sandbox=$PARENT" >> "$GITHUB_OUTPUT"
+          echo "Parent for ${{ matrix.sandbox }}: $PARENT"
+
+      # When a sandbox depends on another sandbox (not base), build that
+      # intermediate parent locally so it is available to the buildx build.
+      - name: Build parent sandbox locally (PR only)
+        if: github.ref != 'refs/heads/main' && steps.parent.outputs.sandbox != 'base'
+        uses: docker/build-push-action@v6
+        with:
+          context: sandboxes/${{ steps.parent.outputs.sandbox }}
+          push: true
+          tags: localhost:5000/sandboxes/${{ steps.parent.outputs.sandbox }}:latest
+          build-args: |
+            BASE_IMAGE=localhost:5000/sandboxes/base:latest
+          cache-from: type=gha,scope=${{ steps.parent.outputs.sandbox }}
+
       - name: Set BASE_IMAGE
         id: base
         run: |
+          PARENT="${{ steps.parent.outputs.sandbox }}"
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "image=${{ env.REGISTRY }}/${{ steps.repo.outputs.image_prefix }}/sandboxes/base:latest" >> "$GITHUB_OUTPUT"
+            echo "image=${{ env.REGISTRY }}/${{ steps.repo.outputs.image_prefix }}/sandboxes/${PARENT}:latest" >> "$GITHUB_OUTPUT"
           else
-            echo "image=localhost:5000/sandboxes/base:latest" >> "$GITHUB_OUTPUT"
+            echo "image=localhost:5000/sandboxes/${PARENT}:latest" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate image metadata
@@ -217,3 +243,5 @@ jobs:
             BASE_IMAGE=${{ steps.base.outputs.image }}
           cache-from: type=gha,scope=${{ matrix.sandbox }}
           cache-to: type=gha,mode=max,scope=${{ matrix.sandbox }}
+
+
