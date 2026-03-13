@@ -72,10 +72,10 @@ network_policies:
           - allow:
               method: POST
               path: "/**/git-upload-pack"
-          # Data transfer for writes (alpha-claw only)
-          - allow:
-              method: POST
-              path: "/johntmyers/alpha-claw*/git-receive-pack"
+          # Data transfer for writes (uncomment and scope to specific repos)
+          # - allow:
+          #     method: POST
+          #     path: "/<owner>/<repo>/git-receive-pack"
     binaries:
       - { path: /usr/bin/git }
   nvidia:
@@ -94,12 +94,10 @@ network_policies:
     binaries:
       - { path: /usr/bin/curl }
 
-  # --- GitHub repo-scoped policy (L7, TLS-terminated) ---
-  # Combined policy for api.github.com to avoid OPA complete-rule conflict.
-  #   - johntmyers/alpha-claw: full access (all methods including DELETE)
-  #   - johntmyers/bravo-claw: read-only + create/edit issues
-  github_repos:
-    name: github_repos
+  # --- GitHub REST API (L7, TLS-terminated) ---
+  # Read-only by default. Uncomment and scope write rules to specific repos.
+  github_rest_api:
+    name: github-rest-api
     endpoints:
       - host: api.github.com
         port: 443
@@ -119,46 +117,13 @@ network_policies:
               path: "/**"
           # GraphQL API (used by gh CLI for most operations)
           # - allow:
-          #    method: POST
-          #    path: "/graphql"
-          # alpha-claw: full write access
-          - allow:
-              method: "*"
-              path: "/repos/johntmyers/alpha-claw/**"
-          # bravo-claw: create + edit issues
-          - allow:
-              method: POST
-              path: "/repos/johntmyers/bravo-claw/issues"
-          - allow:
-              method: PATCH
-              path: "/repos/johntmyers/bravo-claw/issues/*"
+          #     method: POST
+          #     path: "/graphql"
+          # Per-repo write access (uncomment and replace <owner>/<repo>)
+          # - allow:
+          #     method: "*"
+          #     path: "/repos/<owner>/<repo>/**"
     binaries:
       - { path: /usr/local/bin/claude }
       - { path: /usr/bin/gh }
 
-  vscode:
-    name: vscode
-    endpoints:
-      - { host: update.code.visualstudio.com, port: 443 }
-      - { host: "*.vo.msecnd.net", port: 443 }
-      - { host: vscode.download.prss.microsoft.com, port: 443 }
-      - { host: marketplace.visualstudio.com, port: 443 }
-      - { host: "*.gallerycdn.vsassets.io", port: 443 }
-    binaries:
-      - { path: /usr/bin/curl }
-      - { path: /usr/bin/wget }
-      - { path: "/sandbox/.vscode-server/**" }
-      - { path: "/sandbox/.vscode-remote-containers/**" }
-
-  # --- Private network access (allowed_ips demo) ---
-  # Allows any binary to reach services on the k3s cluster pod network
-  # (10.42.0.0/16). Without allowed_ips, the proxy's SSRF check blocks
-  # all connections to private RFC 1918 addresses.
-  cluster_pods:
-    name: cluster_pods
-    endpoints:
-      - port: 8080
-        allowed_ips:
-          - "10.42.0.0/16"
-    binaries:
-      - { path: "/**" }
