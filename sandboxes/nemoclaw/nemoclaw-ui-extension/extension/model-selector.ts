@@ -37,6 +37,8 @@ let selectedModelId = DEFAULT_MODEL.id;
 let modelSelectorObserver: MutationObserver | null = null;
 let applyInFlight = false;
 let currentWrapper: HTMLElement | null = null;
+let activeClusterRoute: ClusterRoute | null = null;
+const ACTIVE_ROUTE_PRIME_PREFIX = "nemoclaw:active-route-primed:";
 
 // ---------------------------------------------------------------------------
 // Build the config.patch payload for a given model entry
@@ -114,6 +116,7 @@ async function fetchDynamic(): Promise<void> {
         route = { providerName: body.providerName, modelId: body.modelId || "", version: body.version || 0 };
       }
     }
+    activeClusterRoute = route;
 
     const entries: ModelEntry[] = [];
 
@@ -141,6 +144,39 @@ async function fetchDynamic(): Promise<void> {
   } catch {
     // Non-fatal -- static models still work
   }
+}
+
+function hasPrimedActiveRoute(route: ClusterRoute): boolean {
+  try {
+    return sessionStorage.getItem(`${ACTIVE_ROUTE_PRIME_PREFIX}${route.providerName}:${route.modelId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markActiveRoutePrimed(route: ClusterRoute): void {
+  try {
+    sessionStorage.setItem(`${ACTIVE_ROUTE_PRIME_PREFIX}${route.providerName}:${route.modelId}`, "1");
+  } catch {
+    // ignore storage failures
+  }
+}
+
+async function primeActiveRoute(): Promise<void> {
+  const route = activeClusterRoute;
+  if (!route?.providerName || !route.modelId || hasPrimedActiveRoute(route)) return;
+
+  const res = await fetch("/api/cluster-inference", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ providerName: route.providerName, modelId: route.modelId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error || `HTTP ${res.status}`);
+  }
+
+  markActiveRoutePrimed(route);
 }
 
 // ---------------------------------------------------------------------------
@@ -533,6 +569,9 @@ function buildModelSelector(): HTMLElement {
     if (valueEl) {
       valueEl.textContent = current ? current.name : "No model";
     }
+    void primeActiveRoute().catch((err) => {
+      console.warn("[NeMoClaw] active route prime failed:", err);
+    });
   });
 
   return wrapper;
