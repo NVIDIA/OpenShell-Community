@@ -32,8 +32,15 @@ CLI_RETRY_COUNT="${CLI_RETRY_COUNT:-5}"
 CLI_RETRY_DELAY_SECS="${CLI_RETRY_DELAY_SECS:-3}"
 GHCR_LOGIN="${GHCR_LOGIN:-auto}"
 GHCR_USER="${GHCR_USER:-}"
-NEMOCLAW_IMAGE="${NEMOCLAW_IMAGE:-ghcr.io/nvidia/openshell-community/sandboxes/nemoclaw:latest}"
+DEFAULT_NEMOCLAW_IMAGE="ghcr.io/nvidia/openshell-community/sandboxes/nemoclaw:latest"
+if [[ -n "${NEMOCLAW_IMAGE+x}" ]]; then
+  NEMOCLAW_IMAGE_EXPLICIT=1
+else
+  NEMOCLAW_IMAGE_EXPLICIT=0
+fi
+NEMOCLAW_IMAGE="${NEMOCLAW_IMAGE:-$DEFAULT_NEMOCLAW_IMAGE}"
 SKIP_NEMOCLAW_IMAGE_BUILD="${SKIP_NEMOCLAW_IMAGE_BUILD:-}"
+CLUSTER_CONTAINER_NAME="${CLUSTER_CONTAINER_NAME:-openshell-cluster-openshell}"
 
 mkdir -p "$(dirname "$LAUNCH_LOG")"
 touch "$LAUNCH_LOG"
@@ -261,6 +268,19 @@ should_build_nemoclaw_image() {
   [[ -n "$COMMUNITY_REF" && "$COMMUNITY_REF" != "main" ]]
 }
 
+maybe_use_branch_local_nemoclaw_tag() {
+  if ! should_build_nemoclaw_image; then
+    return
+  fi
+
+  if [[ "$NEMOCLAW_IMAGE_EXPLICIT" == "1" || "$NEMOCLAW_IMAGE" != "$DEFAULT_NEMOCLAW_IMAGE" ]]; then
+    return
+  fi
+
+  NEMOCLAW_IMAGE="ghcr.io/nvidia/openshell-community/sandboxes/nemoclaw:local-dev"
+  log "Using non-main branch NeMoClaw image tag: $NEMOCLAW_IMAGE"
+}
+
 build_nemoclaw_image_if_needed() {
   local docker_cmd=()
   local image_context="$REPO_ROOT/sandboxes/nemoclaw"
@@ -300,6 +320,75 @@ build_nemoclaw_image_if_needed() {
   fi
 
   log "Local NeMoClaw image ready: $NEMOCLAW_IMAGE"
+}
+
+resolve_docker_cmd() {
+  if command -v docker >/dev/null 2>&1; then
+    printf 'docker'
+    return 0
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    printf 'sudo docker'
+    return 0
+  fi
+  return 1
+}
+
+resolve_cluster_container_name() {
+  local docker_bin
+
+  if [[ -n "$CLUSTER_CONTAINER_NAME" ]]; then
+    printf '%s' "$CLUSTER_CONTAINER_NAME"
+    return 0
+  fi
+
+  docker_bin="$(resolve_docker_cmd)" || return 1
+
+  CLUSTER_CONTAINER_NAME="$($docker_bin ps --format '{{.Names}}\t{{.Image}}' | awk '$1 ~ /^openshell-cluster-/ { print $1; exit }')"
+  if [[ -z "$CLUSTER_CONTAINER_NAME" ]]; then
+    CLUSTER_CONTAINER_NAME="$($docker_bin ps --format '{{.Names}}\t{{.Image}}' | awk '$2 ~ /ghcr.io\\/nvidia\\/openshell\\/cluster/ { print $1; exit }')"
+  fi
+
+  [[ -n "$CLUSTER_CONTAINER_NAME" ]]
+}
+
+import_nemoclaw_image_into_cluster_if_needed() {
+  local docker_bin cluster_name
+
+  if ! should_build_nemoclaw_image && [[ "$NEMOCLAW_IMAGE_EXPLICIT" != "1" ]]; then
+    log "Skipping cluster image import; using registry-backed image: $NEMOCLAW_IMAGE"
+    return
+  fi
+
+  docker_bin="$(resolve_docker_cmd)" || {
+    log "Docker not available; skipping cluster image import."
+    return
+  }
+
+  if ! $docker_bin image inspect "$NEMOCLAW_IMAGE" >/dev/null 2>&1; then
+    log "Local NeMoClaw image not present on host; skipping cluster image import: $NEMOCLAW_IMAGE"
+    return
+  fi
+
+  if ! cluster_name="$(resolve_cluster_container_name)"; then
+    log "OpenShell cluster container not found; skipping cluster image import."
+    return
+  fi
+
+  log "Importing NeMoClaw image into cluster containerd: $NEMOCLAW_IMAGE -> $cluster_name"
+  if ! $docker_bin save "$NEMOCLAW_IMAGE" | $docker_bin exec -i "$cluster_name" sh -lc 'ctr -n k8s.io images import -'; then
+    log "Failed to import NeMoClaw image into cluster containerd."
+    exit 1
+  fi
+
+  if ! $docker_bin exec -i "$cluster_name" sh -lc "ctr -n k8s.io images ls | awk '{print \$1}' | grep -Fx '$NEMOCLAW_IMAGE' >/dev/null"; then
+    log "Imported image tag not found in cluster containerd: $NEMOCLAW_IMAGE"
+    log "Cluster image list:"
+    $docker_bin exec -i "$cluster_name" sh -lc "ctr -n k8s.io images ls | grep 'sandboxes/nemoclaw' || true"
+    exit 1
+  fi
+
+  log "Cluster image import complete: $NEMOCLAW_IMAGE"
 }
 
 checkout_repo_ref() {
@@ -597,6 +686,7 @@ main() {
   step "Resolving CLI"
   resolve_cli
   ensure_cli_compat_aliases
+  maybe_use_branch_local_nemoclaw_tag
   step "Authenticating registries"
   docker_login_ghcr_if_needed
   step "Preparing NeMoClaw image"
@@ -612,6 +702,8 @@ main() {
 
   step "Starting gateway"
   start_gateway
+  step "Importing NeMoClaw image into cluster"
+  import_nemoclaw_image_into_cluster_if_needed
 
   step "Configuring providers"
   run_provider_create_or_replace \

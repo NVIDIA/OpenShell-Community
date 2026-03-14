@@ -24,6 +24,7 @@ const POST_PAIRING_SETTLE_DELAY_MS = 15_000;
 const STABLE_CONNECTION_WINDOW_MS = 10_000;
 const STABLE_CONNECTION_TIMEOUT_MS = 45_000;
 const PAIRING_RELOAD_FLAG = "nemoclaw:pairing-bootstrap-reloaded";
+const FORCED_RELOAD_DELAY_MS = 1_000;
 
 function inject(): boolean {
   const hasButton = injectButton();
@@ -101,6 +102,13 @@ function clearPairingReloadFlag(): void {
   }
 }
 
+function forcePairingReload(reason: string, overlayText: string): void {
+  console.info(`[NeMoClaw] pairing bootstrap: forcing one-time reload (${reason})`);
+  markPairingReloadComplete();
+  setConnectOverlayText(overlayText);
+  window.setTimeout(() => window.location.reload(), FORCED_RELOAD_DELAY_MS);
+}
+
 function bootstrap() {
   console.info("[NeMoClaw] pairing bootstrap: start");
   showConnectOverlay();
@@ -109,10 +117,7 @@ function bootstrap() {
     setConnectOverlayText("Device pairing approved. Finalizing dashboard...");
     console.info("[NeMoClaw] pairing bootstrap: reconnect detected");
     if (shouldForcePairingReload()) {
-      console.info("[NeMoClaw] pairing bootstrap: forcing one-time reload");
-      markPairingReloadComplete();
-      setConnectOverlayText("Device pairing approved. Reloading dashboard...");
-      window.location.reload();
+      forcePairingReload("post-reconnect", "Device pairing approved. Reloading dashboard...");
       return;
     }
     setConnectOverlayText("Device pairing approved. Verifying dashboard health...");
@@ -135,6 +140,10 @@ function bootstrap() {
     .then(finalizeConnectedState)
     .catch(async () => {
       console.warn("[NeMoClaw] pairing bootstrap: initial reconnect timed out; extending wait");
+      if (shouldForcePairingReload()) {
+        forcePairingReload("initial-timeout", "Pairing is still settling. Reloading dashboard...");
+        return;
+      }
       setConnectOverlayText("Still waiting for device pairing approval...");
       try {
         await waitForReconnect(EXTENDED_CONNECT_TIMEOUT_MS);
