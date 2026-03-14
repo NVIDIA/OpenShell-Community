@@ -114,7 +114,7 @@ for provider in cfg.get('models', {}).get('providers', {}).values():
     if not isinstance(provider, dict):
         continue
     for model in provider.get('models', []):
-        if isinstance(model, dict) and model.get('id') == '${_DEFAULT_MODEL}':
+        if isinstance(model, dict) and model.get('id') in ('${_DEFAULT_MODEL}', '-'):
             model['contextWindow'] = ${_DEFAULT_CONTEXT_WINDOW}
             model['maxTokens'] = ${_DEFAULT_MAX_TOKENS}
 json.dump(cfg, open(os.environ['HOME'] + '/.openclaw/openclaw.json', 'w'), indent=2)
