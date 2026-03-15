@@ -1,0 +1,457 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
+
+SOURCE_PATH="${BASH_SOURCE[0]-}"
+if [[ -z "$SOURCE_PATH" || "$SOURCE_PATH" == "bash" || "$SOURCE_PATH" == "-bash" ]]; then
+  SCRIPT_DIR="$PWD"
+else
+  SCRIPT_DIR="$(cd "$(dirname "$SOURCE_PATH")" && pwd)"
+fi
+
+ASSET_DIR="$SCRIPT_DIR/nemoclaw-plugin"
+
+LAUNCH_LOG="${LAUNCH_LOG:-/tmp/launch-plugin.log}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${GITHUB_PAT:-}}}"
+GHCR_USER="${GHCR_USER:-}"
+GIT_HTTP_USER="${GIT_HTTP_USER:-${GHCR_USER:-x-access-token}}"
+PLUGIN_REPO="${PLUGIN_REPO:-NVIDIA/openshell-openclaw-plugin}"
+PLUGIN_REF="${PLUGIN_REF:-main}"
+PLUGIN_CLONE_ROOT="${PLUGIN_CLONE_ROOT:-/home/ubuntu}"
+PLUGIN_DIR="${PLUGIN_DIR:-$PLUGIN_CLONE_ROOT/openshell-openclaw-plugin}"
+CLI_BIN="${CLI_BIN:-openshell}"
+CLI_RELEASE_TAG="${CLI_RELEASE_TAG:-devel}"
+OPENCLAW_VERSION="${OPENCLAW_VERSION:-latest}"
+CODE_SERVER_VERSION="${CODE_SERVER_VERSION:-4.89.1}"
+CODE_SERVER_PORT="${CODE_SERVER_PORT:-13337}"
+
+TARGET_USER="${SUDO_USER:-$(id -un)}"
+TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+mkdir -p "$(dirname "$LAUNCH_LOG")"
+touch "$LAUNCH_LOG"
+exec > >(tee -a "$LAUNCH_LOG") 2>&1
+
+APT_UPDATED=0
+
+log() {
+  printf '[launch-plugin.sh] %s\n' "$*"
+}
+
+step() {
+  printf '\n[launch-plugin.sh] === %s ===\n' "$*"
+}
+
+require_non_root() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    log "Do not run this launcher as root."
+    log "Run it as the target user and let the script use sudo where required."
+    exit 1
+  fi
+}
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    log "Missing required command: $1"
+    exit 1
+  fi
+}
+
+apt_update_once() {
+  if [[ "$APT_UPDATED" -eq 0 ]]; then
+    sudo apt-get update
+    APT_UPDATED=1
+  fi
+}
+
+apt_install() {
+  apt_update_once
+  sudo apt-get install -y "$@"
+}
+
+detect_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo "x86_64" ;;
+    aarch64|arm64) echo "aarch64" ;;
+    *)
+      log "Unsupported architecture: $(uname -m)"
+      exit 1
+      ;;
+  esac
+}
+
+detect_deb_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo "amd64" ;;
+    aarch64|arm64) echo "arm64" ;;
+    *)
+      log "Unsupported architecture: $(uname -m)"
+      exit 1
+      ;;
+  esac
+}
+
+wait_for_tcp_port() {
+  local port="$1"
+  local timeout_secs="${2:-30}"
+  local start_ts
+  start_ts="$(date +%s)"
+
+  while true; do
+    if (echo >"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1; then
+      return 0
+    fi
+
+    if (( "$(date +%s)" - start_ts >= timeout_secs )); then
+      return 1
+    fi
+
+    sleep 1
+  done
+}
+
+ensure_base_packages() {
+  local packages=()
+  for pkg in ca-certificates curl git gpg iproute2 sudo tar; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+      packages+=("$pkg")
+    fi
+  done
+
+  if (( ${#packages[@]} > 0 )); then
+    log "Installing base packages: ${packages[*]}"
+    apt_install "${packages[@]}"
+  fi
+}
+
+ensure_gh() {
+  if command -v gh >/dev/null 2>&1; then
+    return
+  fi
+
+  log "Installing GitHub CLI..."
+  apt_install gh
+}
+
+gh_auth_if_needed() {
+  if ! command -v gh >/dev/null 2>&1; then
+    return
+  fi
+
+  if gh auth status >/dev/null 2>&1; then
+    return
+  fi
+
+  if [[ -z "$GITHUB_TOKEN" ]]; then
+    log "No GitHub token provided; skipping gh auth login."
+    return
+  fi
+
+  log "Authenticating GitHub CLI from environment token..."
+  printf '%s\n' "$GITHUB_TOKEN" | gh auth login --with-token >/dev/null 2>&1
+}
+
+resolve_ghcr_user() {
+  if [[ -n "$GHCR_USER" ]]; then
+    return 0
+  fi
+
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    GHCR_USER="$(gh api user -q .login 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$GHCR_USER" ]]; then
+    GHCR_USER="${USER:-}"
+  fi
+
+  [[ -n "$GHCR_USER" ]]
+}
+
+docker_login_ghcr_if_needed() {
+  if [[ -z "$GITHUB_TOKEN" ]]; then
+    log "No GitHub token provided; skipping GHCR login."
+    return
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+    log "Docker not available yet; skipping GHCR login."
+    return
+  fi
+
+  if ! resolve_ghcr_user; then
+    log "Could not determine GHCR username; skipping GHCR login."
+    return
+  fi
+
+  log "Authenticating Docker to ghcr.io for ${TARGET_USER}..."
+  printf '%s\n' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1 || true
+  printf '%s\n' "$GITHUB_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1 || true
+}
+
+ensure_node() {
+  local node_major=""
+
+  if command -v node >/dev/null 2>&1; then
+    node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+  fi
+
+  if command -v npm >/dev/null 2>&1 && [[ -n "$node_major" ]] && (( node_major >= 20 )); then
+    log "Node.js already installed: $(node --version)"
+    log "npm already installed: $(npm --version)"
+    return
+  fi
+
+  log "Installing Node.js 22..."
+  require_cmd curl
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+  apt_install nodejs
+}
+
+ensure_docker() {
+  if command -v docker >/dev/null 2>&1; then
+    log "Docker already installed."
+  else
+    log "Installing Docker..."
+    apt_install docker.io
+  fi
+
+  sudo systemctl enable --now docker
+  sudo usermod -aG docker "$TARGET_USER" || true
+}
+
+install_cli_from_release() {
+  local arch tmpdir repo pattern archive url
+
+  arch="$(detect_arch)"
+  repo="NVIDIA/OpenShell"
+  pattern="openshell-${arch}-unknown-linux-musl.tar.gz"
+  tmpdir="$(mktemp -d)"
+  archive="$tmpdir/$pattern"
+
+  if command -v gh >/dev/null 2>&1; then
+    if gh release download "$CLI_RELEASE_TAG" --repo "$repo" --pattern "$pattern" --dir "$tmpdir" >/dev/null 2>&1; then
+      tar xzf "$archive" -C "$tmpdir"
+      sudo install -m 755 "$tmpdir/openshell" /usr/local/bin/openshell
+      CLI_BIN="openshell"
+      rm -rf "$tmpdir"
+      return 0
+    fi
+  fi
+
+  url="https://github.com/NVIDIA/OpenShell/releases/download/${CLI_RELEASE_TAG}/${pattern}"
+  log "Falling back to direct OpenShell release download..."
+  if curl -fsSL "$url" -o "$archive"; then
+    tar xzf "$archive" -C "$tmpdir"
+    sudo install -m 755 "$tmpdir/openshell" /usr/local/bin/openshell
+    CLI_BIN="openshell"
+    rm -rf "$tmpdir"
+    return 0
+  fi
+
+  rm -rf "$tmpdir"
+  log "Unable to install OpenShell CLI from GitHub releases."
+  exit 1
+}
+
+ensure_cli() {
+  if command -v openshell >/dev/null 2>&1; then
+    CLI_BIN="openshell"
+    log "Using existing OpenShell CLI: $(command -v openshell)"
+    return
+  fi
+
+  ensure_gh
+  gh_auth_if_needed
+  install_cli_from_release
+}
+
+ensure_openclaw() {
+  if command -v openclaw >/dev/null 2>&1; then
+    log "OpenClaw already installed: $(openclaw --version 2>/dev/null | head -n 1)"
+    return
+  fi
+
+  log "Installing OpenClaw ${OPENCLAW_VERSION}..."
+  sudo npm install -g "openclaw@${OPENCLAW_VERSION}"
+}
+
+clone_plugin_repo() {
+  local clone_url
+
+  mkdir -p "$(dirname "$PLUGIN_DIR")"
+
+  if [[ -d "$PLUGIN_DIR/.git" ]]; then
+    log "Plugin repo already exists at $PLUGIN_DIR; refreshing checkout."
+    git -C "$PLUGIN_DIR" fetch --tags --prune origin
+    git -C "$PLUGIN_DIR" checkout "$PLUGIN_REF"
+    git -C "$PLUGIN_DIR" pull --ff-only origin "$PLUGIN_REF"
+    return
+  fi
+
+  if [[ -e "$PLUGIN_DIR" ]]; then
+    log "Plugin directory exists but is not a git checkout: $PLUGIN_DIR"
+    exit 1
+  fi
+
+  if [[ -n "$GITHUB_TOKEN" ]]; then
+    clone_url="https://${GIT_HTTP_USER}:${GITHUB_TOKEN}@github.com/${PLUGIN_REPO}.git"
+    log "Cloning plugin repo with token auth into $PLUGIN_DIR"
+  else
+    clone_url="https://github.com/${PLUGIN_REPO}.git"
+    log "Cloning plugin repo into $PLUGIN_DIR"
+  fi
+
+  git clone --branch "$PLUGIN_REF" "$clone_url" "$PLUGIN_DIR"
+}
+
+install_plugin() {
+  log "Installing openshell-openclaw-plugin globally from $PLUGIN_DIR"
+  sudo npm install -g "$PLUGIN_DIR"
+}
+
+build_openclaw_plugin() {
+  log "Building local OpenClaw plugin payload from $PLUGIN_DIR/nemoclaw"
+  (
+    cd "$PLUGIN_DIR/nemoclaw"
+    npm install
+    npm run build
+  )
+}
+
+install_openclaw_plugin() {
+  log "Installing NemoClaw into OpenClaw from local checkout"
+  openclaw plugins install "$PLUGIN_DIR/nemoclaw"
+}
+
+install_code_server() {
+  local deb_arch tmp_deb url
+
+  if command -v code-server >/dev/null 2>&1; then
+    log "code-server already installed: $(code-server --version | head -n 1)"
+    return
+  fi
+
+  deb_arch="$(detect_deb_arch)"
+  tmp_deb="$(mktemp /tmp/code-server.XXXXXX.deb)"
+  url="https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server_${CODE_SERVER_VERSION}_${deb_arch}.deb"
+
+  log "Installing code-server ${CODE_SERVER_VERSION}..."
+  curl -fsSL "$url" -o "$tmp_deb"
+  sudo apt-get install -y "$tmp_deb"
+  rm -f "$tmp_deb"
+}
+
+configure_code_server() {
+  local config_dir settings_dir settings_user_dir workspaces_dir workspace_path home_workspace_path
+
+  config_dir="$TARGET_HOME/.config/code-server"
+  settings_dir="$TARGET_HOME/.local/share/code-server"
+  settings_user_dir="$settings_dir/User"
+  workspaces_dir="$settings_user_dir/Workspaces"
+  workspace_path="$workspaces_dir/nemoclaw-plugin.code-workspace"
+  home_workspace_path="$TARGET_HOME/nemoclaw-plugin.code-workspace"
+
+  sudo -u "$TARGET_USER" mkdir -p "$config_dir" "$settings_user_dir" "$workspaces_dir" "$TARGET_HOME/.vscode"
+
+  sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/nv-theme-0.0.1.vsix" "$config_dir/nv-theme-0.0.1.vsix"
+  sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/settings.json" "$settings_user_dir/settings.json"
+  sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/README.md" "$TARGET_HOME/README.md"
+
+  sudo -u "$TARGET_USER" tee "$config_dir/config.yaml" >/dev/null <<EOF
+bind-addr: 0.0.0.0:${CODE_SERVER_PORT}
+auth: none
+disable-workspace-trust: true
+disable-telemetry: true
+disable-update-check: true
+welcome-text: "Welcome to NeMoClaw Plugin"
+app-name: "NeMoClaw Plugin Developer Sandbox"
+EOF
+
+  sudo -u "$TARGET_USER" tee "$settings_dir/coder.json" >/dev/null <<EOF
+{
+  "query": {
+    "folder": "${TARGET_HOME}"
+  },
+  "lastVisited": {
+    "url": "${workspace_path}",
+    "workspace": true
+  }
+}
+EOF
+
+  sudo -u "$TARGET_USER" tee "$workspace_path" >/dev/null <<EOF
+{
+  "folders": [
+    {
+      "name": "Home",
+      "path": "${TARGET_HOME}"
+    }
+  ]
+}
+EOF
+
+  sudo -u "$TARGET_USER" install -m 644 "$workspace_path" "$home_workspace_path"
+
+  sudo -H -u "$TARGET_USER" env HOME="$TARGET_HOME" code-server --install-extension "$config_dir/nv-theme-0.0.1.vsix" --force >/dev/null
+}
+
+enable_code_server_service() {
+  sudo systemctl daemon-reload
+  sudo systemctl enable "code-server@${TARGET_USER}"
+  sudo systemctl restart "code-server@${TARGET_USER}"
+
+  if ! wait_for_tcp_port "$CODE_SERVER_PORT" 30; then
+    log "code-server did not open port ${CODE_SERVER_PORT} within 30 seconds."
+    sudo systemctl status "code-server@${TARGET_USER}" --no-pager || true
+    exit 1
+  fi
+}
+
+print_next_steps() {
+  log "Launch log: $LAUNCH_LOG"
+  log "Plugin repo: $PLUGIN_DIR"
+  log "code-server URL: http://$(hostname -f 2>/dev/null || hostname):${CODE_SERVER_PORT}"
+  log "code-server service: journalctl -u code-server@${TARGET_USER} -f"
+  log "Next step: run 'nemoclaw setup' as ${TARGET_USER}"
+}
+
+main() {
+  require_non_root
+  require_cmd getent
+  require_cmd id
+  require_cmd sudo
+
+  step "Installing base dependencies"
+  ensure_base_packages
+
+  step "Installing runtime prerequisites"
+  ensure_node
+  ensure_docker
+  ensure_gh
+  gh_auth_if_needed
+  docker_login_ghcr_if_needed
+
+  step "Installing OpenShell CLI"
+  ensure_cli
+
+  step "Installing OpenClaw"
+  ensure_openclaw
+
+  step "Cloning and installing plugin"
+  clone_plugin_repo
+  build_openclaw_plugin
+  install_openclaw_plugin
+  install_plugin
+
+  step "Installing code-server"
+  install_code_server
+  configure_code_server
+  enable_code_server_service
+
+  step "Ready"
+  print_next_steps
+}
+
+main "$@"

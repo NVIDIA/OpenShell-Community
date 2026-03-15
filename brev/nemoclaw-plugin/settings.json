@@ -1,0 +1,8 @@
+{
+  "workbench.colorTheme": "NV Theme",
+  "workbench.startupEditor": "readme",
+  "window.menuBarVisibility": "classic",
+  "security.workspace.trust.enabled": false,
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none"
+}
