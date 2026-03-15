@@ -453,6 +453,87 @@ function scheduleStartupAudit(attempt = 1) {
 }
 
 // ---------------------------------------------------------------------------
+// Sandbox denial log fetcher (via GetSandboxLogs gRPC)
+// ---------------------------------------------------------------------------
+
+let sandboxId = "";
+
+function resolveSandboxId() {
+  sandboxId = process.env.NEMOCLAW_SANDBOX_ID || "";
+  if (!sandboxId) {
+    const discovered = discoverFromSupervisor();
+    sandboxId = discovered.sandboxId || discovered.sandbox || os.hostname() || "";
+  }
+}
+
+function getSandboxLogs(request) {
+  return new Promise((resolve, reject) => {
+    const deadline = new Date(Date.now() + 5000);
+    grpcClient.GetSandboxLogs(request, { deadline }, (err, response) => {
+      if (err) return reject(err);
+      resolve(response);
+    });
+  });
+}
+
+async function handleDenialsGet(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  if (!grpcEnabled || !grpcClient || grpcPermanentlyDisabled) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ denials: [], latest_ts: 0 }));
+    return;
+  }
+
+  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  const sinceMs = parseInt(url.searchParams.get("since") || "0", 10) || 0;
+
+  try {
+    const resp = await getSandboxLogs({
+      sandbox_id: sandboxId || sandboxName,
+      lines: 200,
+      since_ms: sinceMs || 0,
+      sources: ["sandbox"],
+      min_level: "INFO",
+    });
+
+    const denials = [];
+    let latestTs = sinceMs;
+
+    for (const log of (resp.logs || [])) {
+      const fields = log.fields || {};
+      if (fields.action !== "deny") continue;
+
+      const ts = Number(log.timestamp_ms) || 0;
+      if (ts > latestTs) latestTs = ts;
+
+      denials.push({
+        ts,
+        host: fields.dst_host || "",
+        port: parseInt(fields.dst_port || "0", 10) || 0,
+        binary: fields.binary || "",
+        reason: fields.reason || "",
+      });
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ denials, latest_ts: latestTs }));
+  } catch (e) {
+    console.warn("[policy-proxy] GetSandboxLogs failed:", e.message);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ denials: [], latest_ts: 0, error: e.message }));
+  }
+}
+
+// ---------------------------------------------------------------------------
 // HTTP proxy helpers
 // ---------------------------------------------------------------------------
 
@@ -593,6 +674,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.url && req.url.startsWith("/api/sandbox-denials")) {
+    handleDenialsGet(req, res);
+    return;
+  }
+
   proxyRequest(req, res);
 });
 
@@ -624,6 +710,7 @@ server.on("upgrade", (req, socket, head) => {
 
 // Initialize gRPC client before starting the HTTP server.
 initGrpcClient();
+resolveSandboxId();
 auditStartupPolicyFile();
 
 server.listen(LISTEN_PORT, "127.0.0.1", () => {

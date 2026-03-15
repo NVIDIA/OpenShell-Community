@@ -8,10 +8,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
     "js-yaml": "^4"
   },
   "devDependencies": {
-    "vitest": "^3",
-    "supertest": "^7"
+    "supertest": "^7",
+    "vitest": "^3"
   }
 }

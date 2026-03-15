@@ -26,6 +26,15 @@ try {
   yaml = null;
 }
 
+let grpc, protoLoader;
+try {
+  grpc = require("@grpc/grpc-js");
+  protoLoader = require("@grpc/proto-loader");
+} catch {
+  grpc = null;
+  protoLoader = null;
+}
+
 // ── Configuration ──────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT || "8081", 10);
@@ -1223,6 +1232,173 @@ async function handleClusterInferenceSet(req, res) {
   }
 }
 
+// ── Sandbox denial logs (gRPC to gateway) ──────────────────────────────────
+
+let _denialsGrpcClient = null;
+let _sandboxUuid = "";
+
+function initDenialsGrpc() {
+  if (!grpc || !protoLoader) {
+    logWelcome("gRPC packages not available; /api/sandbox-denials will proxy to sandbox");
+    return;
+  }
+
+  const configDir = path.join(
+    os.homedir(),
+    ".config",
+    "openshell",
+    "gateways"
+  );
+
+  let metaPath, mtlsDir;
+  try {
+    const activeGw = fs
+      .readFileSync(path.join(os.homedir(), ".config", "openshell", "active_gateway"), "utf-8")
+      .trim();
+    metaPath = path.join(configDir, activeGw, "metadata.json");
+    mtlsDir = path.join(configDir, activeGw, "mtls");
+  } catch {
+    logWelcome("Cannot read active gateway config; denials gRPC disabled");
+    return;
+  }
+
+  let endpoint;
+  try {
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    endpoint = meta.gateway_endpoint;
+  } catch {
+    logWelcome("Cannot read gateway metadata; denials gRPC disabled");
+    return;
+  }
+
+  if (!endpoint) return;
+
+  const openshellProtoDir = path.join(ROOT, "..", "..", "..", "OpenShell", "proto");
+  const nemoclawProtoDir = path.join(REPO_ROOT, "sandboxes", "nemoclaw", "proto");
+  const protoDir = fs.existsSync(path.join(openshellProtoDir, "openshell.proto"))
+    ? openshellProtoDir
+    : nemoclawProtoDir;
+  const protoFile = protoDir === openshellProtoDir ? "openshell.proto" : "navigator.proto";
+
+  let packageDef;
+  try {
+    packageDef = protoLoader.loadSync(protoFile, {
+      keepCase: true,
+      longs: Number,
+      enums: String,
+      defaults: true,
+      oneofs: true,
+      includeDirs: [protoDir],
+    });
+  } catch (e) {
+    logWelcome(`Failed to load ${protoFile}: ${e.message}`);
+    return;
+  }
+
+  const proto = grpc.loadPackageDefinition(packageDef);
+  const target = endpoint.replace(/^https?:\/\//, "");
+
+  const svc = (proto.openshell && proto.openshell.v1 && proto.openshell.v1.OpenShell)
+    || (proto.navigator && proto.navigator.v1 && proto.navigator.v1.Navigator);
+  if (!svc) {
+    logWelcome("Could not find OpenShell or Navigator service in proto definitions");
+    return;
+  }
+
+  let creds;
+  try {
+    const caPath = path.join(mtlsDir, "ca.crt");
+    const certPath = path.join(mtlsDir, "tls.crt");
+    const keyPath = path.join(mtlsDir, "tls.key");
+    if (fs.existsSync(caPath) && fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+      creds = grpc.credentials.createSsl(
+        fs.readFileSync(caPath),
+        fs.readFileSync(keyPath),
+        fs.readFileSync(certPath)
+      );
+    } else if (fs.existsSync(caPath)) {
+      creds = grpc.credentials.createSsl(fs.readFileSync(caPath));
+    } else {
+      creds = grpc.credentials.createInsecure();
+    }
+  } catch {
+    creds = grpc.credentials.createInsecure();
+  }
+
+  _denialsGrpcClient = new svc(target, creds);
+  logWelcome(`Denials gRPC client initialized → ${target} (service: ${svc.serviceName || protoFile})`);
+
+  resolveSandboxUuid();
+}
+
+function resolveSandboxUuid() {
+  execCmd(cliArgs("sandbox", "get", SANDBOX_NAME), 10000).then((result) => {
+    if (result.code !== 0) return;
+    const m = stripAnsi(result.stdout).match(/Id:\s+(\S+)/);
+    if (m) {
+      _sandboxUuid = m[1];
+      logWelcome(`Resolved sandbox UUID: ${_sandboxUuid}`);
+    }
+  });
+}
+
+function grpcGetSandboxLogs(request) {
+  return new Promise((resolve, reject) => {
+    const deadline = new Date(Date.now() + 5000);
+    _denialsGrpcClient.GetSandboxLogs(request, { deadline }, (err, response) => {
+      if (err) return reject(err);
+      resolve(response);
+    });
+  });
+}
+
+async function handleSandboxDenials(req, res) {
+  if (!_denialsGrpcClient || !_sandboxUuid) {
+    if (!_sandboxUuid && _denialsGrpcClient) resolveSandboxUuid();
+    return jsonResponse(res, 200, { denials: [], latest_ts: 0 });
+  }
+
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  const sinceMs = parseInt(parsedUrl.searchParams.get("since") || "0", 10) || 0;
+
+  try {
+    const resp = await grpcGetSandboxLogs({
+      sandbox_id: _sandboxUuid,
+      lines: 2000,
+      since_ms: sinceMs || 0,
+      sources: ["sandbox"],
+      min_level: "INFO",
+    });
+
+    const denials = [];
+    let latestTs = sinceMs;
+
+    for (const log of resp.logs || []) {
+      const fields = log.fields || {};
+      if (fields.action !== "deny") continue;
+
+      const host = fields.dst_host || "";
+      if (!host) continue;
+
+      const ts = Number(log.timestamp_ms) || 0;
+      if (ts > latestTs) latestTs = ts;
+
+      denials.push({
+        ts,
+        host,
+        port: parseInt(fields.dst_port || fields.port || "0", 10) || 0,
+        binary: fields.binary || "",
+        reason: fields.reason || "",
+      });
+    }
+
+    return jsonResponse(res, 200, { denials, latest_ts: latestTs });
+  } catch (e) {
+    logWelcome(`GetSandboxLogs gRPC failed: ${e.message}`);
+    return jsonResponse(res, 200, { denials: [], latest_ts: 0 });
+  }
+}
+
 // ── Reverse proxy (HTTP) ───────────────────────────────────────────────────
 
 function proxyToSandbox(clientReq, clientRes) {
@@ -1666,6 +1842,9 @@ async function handleRequest(req, res) {
   if (pathname === "/api/sandbox-logs" && method === "GET") {
     return handleSandboxLogs(req, res);
   }
+  if (pathname === "/api/sandbox-denials" && method === "GET") {
+    return handleSandboxDenials(req, res);
+  }
 
   // If sandbox is ready, proxy everything else to the sandbox
   if (await sandboxReady()) {
@@ -1733,6 +1912,7 @@ function _setMocksForTesting(mocks) {
 
 if (require.main === module) {
   bootstrapConfigCache();
+  initDenialsGrpc();
   server.listen(PORT, "", () => {
     console.log(`OpenShell Welcome UI -> http://localhost:${PORT}`);
   });

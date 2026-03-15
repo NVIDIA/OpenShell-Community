@@ -68,6 +68,15 @@ interface SelectOption {
   label: string;
 }
 
+/** Denial event from /api/sandbox-denials (recent blocked connection). */
+interface DenialEvent {
+  ts: number;
+  host: string;
+  port: number;
+  binary: string;
+  reason: string;
+}
+
 // ---------------------------------------------------------------------------
 // Policy templates
 // ---------------------------------------------------------------------------
@@ -185,6 +194,103 @@ async function syncPolicyViaHost(yamlText: string): Promise<SavePolicyResult> {
 }
 
 // ---------------------------------------------------------------------------
+// Recommendations (from recent sandbox denials)
+// ---------------------------------------------------------------------------
+
+const DENIALS_SINCE_MS = 5 * 60 * 1000; // 5 minutes
+
+async function fetchDenials(): Promise<DenialEvent[]> {
+  const since = Date.now() - DENIALS_SINCE_MS;
+  const res = await fetch(`/api/sandbox-denials?since=${since}`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { denials?: DenialEvent[] };
+  return data.denials || [];
+}
+
+function ruleNameFromDenial(host: string, port: number): string {
+  const sanitized = host
+    .replace(/\./g, "_")
+    .replace(/-/g, "_")
+    .replace(/[^a-zA-Z0-9_]/g, "");
+  return `allow_${sanitized || "host"}_${port}`;
+}
+
+function binaryBasename(path: string): string {
+  const parts = path.split("/");
+  return parts[parts.length - 1] || path;
+}
+
+/** True if current policy already allows this host:port for this binary. */
+function denialAlreadyAllowed(denial: DenialEvent): boolean {
+  const policies = currentPolicy?.network_policies || {};
+  const denialPath = denial.binary || "";
+  const denialBin = binaryBasename(denialPath);
+  for (const policy of Object.values(policies)) {
+    const hasEndpoint = (policy.endpoints || []).some(
+      (ep) => String(ep.host) === denial.host && Number(ep.port) === denial.port
+    );
+    if (!hasEndpoint) continue;
+    const binaries = (policy.binaries || []).map((b) => b.path);
+    if (binaries.length === 0) return true;
+    if (binaries.some((p) => p === denialPath || binaryBasename(p) === denialBin)) return true;
+  }
+  return false;
+}
+
+/** Add or merge policy from a denial, then save and refresh the page. */
+async function approveRecommendation(denial: DenialEvent): Promise<void> {
+  if (!currentPolicy) return;
+  if (!currentPolicy.network_policies) currentPolicy.network_policies = {};
+  const key = ruleNameFromDenial(denial.host, denial.port);
+  const existing = currentPolicy.network_policies[key];
+  const binaryPath = denial.binary || "";
+  const newBinary: PolicyBinary = { path: binaryPath };
+
+  if (existing) {
+    existing.binaries = existing.binaries || [];
+    if (binaryPath && !existing.binaries.some((b) => b.path === binaryPath)) {
+      existing.binaries.push(newBinary);
+    }
+    markDirty(key, "modified");
+  } else {
+    const newPolicy: NetworkPolicy = {
+      name: key,
+      endpoints: [{ host: denial.host, port: denial.port }],
+      binaries: binaryPath ? [{ path: binaryPath }] : [],
+    };
+    currentPolicy.network_policies[key] = newPolicy;
+    markDirty(key, "added");
+  }
+
+  const yamlText = yaml.dump(currentPolicy, {
+    lineWidth: -1,
+    noRefs: true,
+    quotingType: '"',
+    forceQuotes: false,
+  });
+
+  let result = await savePolicy(yamlText);
+  rawYaml = yamlText;
+  isDirty = false;
+  changeTracker.modified.clear();
+  changeTracker.added.clear();
+  changeTracker.deleted.clear();
+  document.dispatchEvent(new CustomEvent("nemoclaw:policy-saved"));
+
+  if (result.applied === false) {
+    try {
+      const hostResult = await syncPolicyViaHost(yamlText);
+      if (hostResult.ok && hostResult.applied) result = hostResult;
+    } catch {
+      // ignore
+    }
+  }
+
+  const page = pageContainer?.querySelector<HTMLElement>(".nemoclaw-policy-page");
+  if (page) renderPageContent(page);
+}
+
+// ---------------------------------------------------------------------------
 // Render entry point
 // ---------------------------------------------------------------------------
 
@@ -282,6 +388,7 @@ function buildTabLayout(): HTMLElement {
 
   const editablePanel = document.createElement("div");
   editablePanel.className = "nemoclaw-policy-tab-panel";
+  editablePanel.appendChild(buildRecommendationsSection());
   editablePanel.appendChild(buildNetworkPoliciesSection());
 
   const lockedPanel = document.createElement("div");
@@ -307,6 +414,114 @@ function buildTabLayout(): HTMLElement {
   });
 
   return wrapper;
+}
+
+// ---------------------------------------------------------------------------
+// Recommendations (from recent sandbox denials — one-click approve)
+// ---------------------------------------------------------------------------
+
+function buildRecommendationsSection(): HTMLElement {
+  const section = document.createElement("div");
+  section.className = "nemoclaw-policy-recommendations";
+  section.innerHTML = `
+    <div class="nemoclaw-policy-recommendations__header">
+      <span class="nemoclaw-policy-recommendations__icon">${ICON_SHIELD}</span>
+      <h3 class="nemoclaw-policy-recommendations__title">Recommended from recent blocks</h3>
+      <span class="nemoclaw-policy-recommendations__count"></span>
+      <button type="button" class="nemoclaw-policy-recommendations__approve-all" style="display: none;">Approve all</button>
+    </div>
+    <p class="nemoclaw-policy-recommendations__desc">These connections were blocked by the sandbox. Approve to add an allow rule.</p>
+    <div class="nemoclaw-policy-recommendations__list nemoclaw-policy-recommendations__list--scrollable">
+      <span class="nemoclaw-policy-recommendations__loading">Loading…</span>
+    </div>`;
+
+  const titleEl = section.querySelector<HTMLElement>(".nemoclaw-policy-recommendations__title")!;
+  const countEl = section.querySelector<HTMLElement>(".nemoclaw-policy-recommendations__count")!;
+  const approveAllBtn = section.querySelector<HTMLButtonElement>(".nemoclaw-policy-recommendations__approve-all")!;
+  const list = section.querySelector<HTMLElement>(".nemoclaw-policy-recommendations__list")!;
+
+  function setCount(n: number): void {
+    if (n === 0) {
+      countEl.textContent = "";
+      approveAllBtn.style.display = "none";
+    } else {
+      countEl.textContent = `(${n})`;
+      approveAllBtn.style.display = "";
+      approveAllBtn.textContent = n === 1 ? "Approve all" : `Approve all ${n}`;
+    }
+  }
+
+  (async () => {
+    try {
+      const denials = await fetchDenials();
+      const toShow = denials.filter((d) => !denialAlreadyAllowed(d));
+      const seen = new Set<string>();
+      const unique: DenialEvent[] = [];
+      for (const d of toShow) {
+        const key = `${d.host}:${d.port}:${d.binary}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(d);
+      }
+
+      list.classList.remove("nemoclaw-policy-recommendations__list--empty");
+      list.innerHTML = "";
+      setCount(unique.length);
+
+      if (unique.length === 0) {
+        list.classList.add("nemoclaw-policy-recommendations__list--empty");
+        list.textContent = "No recent blocks. Denied connections will appear here.";
+        return;
+      }
+
+      approveAllBtn.onclick = async () => {
+        approveAllBtn.disabled = true;
+        const snapshot = [...unique];
+        for (const denial of snapshot) {
+          try {
+            await approveRecommendation(denial);
+          } catch (err) {
+            console.warn("[policy] approve all: one failed:", err);
+          }
+        }
+        approveAllBtn.disabled = false;
+      };
+
+      for (const denial of unique) {
+        const card = document.createElement("div");
+        card.className = "nemoclaw-policy-recommendation-card";
+        const binShort = binaryBasename(denial.binary) || "process";
+        const portSuffix = denial.port === 443 || denial.port === 80 ? "" : `:${denial.port}`;
+        card.innerHTML = `
+          <div class="nemoclaw-policy-recommendation-card__summary">
+            <code>${escapeHtml(binShort)}</code> → <code>${escapeHtml(denial.host)}${escapeHtml(String(portSuffix))}</code>
+          </div>
+          <button type="button" class="nemoclaw-policy-recommendation-card__approve">${ICON_CHECK} Approve</button>`;
+        const btn = card.querySelector<HTMLButtonElement>(".nemoclaw-policy-recommendation-card__approve");
+        if (btn) {
+          btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            btn.textContent = "Applying…";
+            try {
+              await approveRecommendation(denial);
+            } catch (err) {
+              btn.disabled = false;
+              btn.innerHTML = `${ICON_CHECK} Approve`;
+              console.warn("[policy] approve recommendation failed:", err);
+            }
+          });
+        }
+        list.appendChild(card);
+      }
+    } catch {
+      list.innerHTML = "";
+      list.classList.add("nemoclaw-policy-recommendations__list--empty");
+      list.textContent = "Could not load recommendations.";
+      setCount(0);
+    }
+  })();
+
+  return section;
 }
 
 // ---------------------------------------------------------------------------
@@ -1352,6 +1567,8 @@ async function handleSave(btn: HTMLButtonElement, feedback: HTMLElement, bar: HT
     changeTracker.modified.clear();
     changeTracker.added.clear();
     changeTracker.deleted.clear();
+
+    document.dispatchEvent(new CustomEvent("nemoclaw:policy-saved"));
 
     // When the in-sandbox gRPC is blocked by network enforcement, relay
     // through the host-side welcome-ui server which can reach the gateway.

@@ -17,6 +17,7 @@ import { injectModelSelector, watchChatCompose } from "./model-selector.ts";
 import { ingestKeysFromUrl, DEFAULT_MODEL, resolveApiKey, isKeyConfigured } from "./model-registry.ts";
 import { waitForReconnect, waitForStableConnection } from "./gateway-bridge.ts";
 import { syncKeysToProviders } from "./api-keys-page.ts";
+import { startDenialWatcher } from "./denial-watcher.ts";
 
 const INITIAL_CONNECT_TIMEOUT_MS = 30_000;
 const EXTENDED_CONNECT_TIMEOUT_MS = 300_000;
@@ -76,6 +77,7 @@ function revealApp(): void {
     overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
     setTimeout(() => overlay.remove(), 600);
   }
+  startDenialWatcher();
 }
 
 function shouldForcePairingReload(): boolean {
