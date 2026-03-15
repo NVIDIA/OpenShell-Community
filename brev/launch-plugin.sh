@@ -447,6 +447,7 @@ install_code_server() {
 
 configure_code_server() {
   local config_dir settings_dir settings_user_dir workspaces_dir workspace_path home_workspace_path
+  local terminals_target
 
   config_dir="$TARGET_HOME/.config/code-server"
   settings_dir="$TARGET_HOME/.local/share/code-server"
@@ -454,13 +455,34 @@ configure_code_server() {
   workspaces_dir="$settings_user_dir/Workspaces"
   workspace_path="$workspaces_dir/nemoclaw-plugin.code-workspace"
   home_workspace_path="$TARGET_HOME/nemoclaw-plugin.code-workspace"
+  terminals_target="$TARGET_HOME/.vscode/terminals.json"
 
   sudo -u "$TARGET_USER" mkdir -p "$config_dir" "$settings_user_dir" "$workspaces_dir" "$TARGET_HOME/.vscode"
 
   sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/nv-theme-0.0.1.vsix" "$config_dir/nv-theme-0.0.1.vsix"
   sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/settings.json" "$settings_user_dir/settings.json"
-  sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/terminals.json" "$TARGET_HOME/.vscode/terminals.json"
   sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/README.md" "$TARGET_HOME/README.md"
+
+  if [[ -f "$ASSET_DIR/terminals.json" ]]; then
+    sudo -u "$TARGET_USER" install -m 644 "$ASSET_DIR/terminals.json" "$terminals_target"
+  else
+    sudo -u "$TARGET_USER" tee "$terminals_target" >/dev/null <<'EOF'
+{
+  "autorun": true,
+  "terminals": [
+    {
+      "name": "openclaw-status",
+      "description": "OpenClaw status",
+      "open": true,
+      "focus": true,
+      "commands": [
+        "openclaw status"
+      ]
+    }
+  ]
+}
+EOF
+  fi
 
   sudo -u "$TARGET_USER" tee "$config_dir/config.yaml" >/dev/null <<EOF
 bind-addr: 0.0.0.0:${CODE_SERVER_PORT}
