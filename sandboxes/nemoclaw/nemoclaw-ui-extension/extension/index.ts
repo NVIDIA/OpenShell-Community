@@ -26,6 +26,46 @@ const STABLE_CONNECTION_WINDOW_MS = 10_000;
 const STABLE_CONNECTION_TIMEOUT_MS = 45_000;
 const PAIRING_RELOAD_FLAG = "nemoclaw:pairing-bootstrap-reloaded";
 const FORCED_RELOAD_DELAY_MS = 1_000;
+const PAIRING_STATUS_POLL_MS = 500;
+const PAIRING_REARM_INTERVAL_MS = 4_000;
+const OVERLAY_SHOW_DELAY_MS = 400;
+const PAIRING_BOOTSTRAPPED_FLAG = "nemoclaw:pairing-bootstrap-complete";
+const POST_READY_SETTLE_MS = 750;
+const WARM_START_CONNECTION_WINDOW_MS = 500;
+const WARM_START_TIMEOUT_MS = 2_500;
+const READINESS_HANDLED = Symbol("pairing-bootstrap-readiness-handled");
+
+interface PairingBootstrapState {
+  status?: string;
+  approvedCount?: number;
+  active?: boolean;
+  lastApprovalDeviceId?: string;
+  lastError?: string;
+  sawBrowserPaired?: boolean;
+}
+
+const PAIRING_STATUS_PRIORITY: Record<string, number> = {
+  idle: 0,
+  armed: 1,
+  pending: 2,
+  approving: 3,
+  "approved-pending-settle": 4,
+  "paired-other-device": 5,
+  paired: 6,
+  timeout: 7,
+  error: 7,
+};
+
+function isPairingTerminal(state: PairingBootstrapState | null): boolean {
+  if (!state) return false;
+  if (state.active) return false;
+  return state.status === "paired" || state.status === "timeout" || state.status === "error";
+}
+
+function isPairingRecoveryEligible(state: PairingBootstrapState | null): boolean {
+  if (!state) return false;
+  return state.status === "paired";
+}
 
 function inject(): boolean {
   const hasButton = injectButton();
@@ -71,6 +111,7 @@ function setConnectOverlayText(text: string): void {
 }
 
 function revealApp(): void {
+  markPairingBootstrapped();
   document.body.setAttribute("data-nemoclaw-ready", "");
   const overlay = document.querySelector(".nemoclaw-connect-overlay");
   if (overlay) {
@@ -80,7 +121,7 @@ function revealApp(): void {
   startDenialWatcher();
 }
 
-function shouldForcePairingReload(): boolean {
+function shouldAllowRecoveryReload(): boolean {
   try {
     return sessionStorage.getItem(PAIRING_RELOAD_FLAG) !== "1";
   } catch {
@@ -88,7 +129,23 @@ function shouldForcePairingReload(): boolean {
   }
 }
 
-function markPairingReloadComplete(): void {
+function isPairingBootstrapped(): boolean {
+  try {
+    return sessionStorage.getItem(PAIRING_BOOTSTRAPPED_FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markPairingBootstrapped(): void {
+  try {
+    sessionStorage.setItem(PAIRING_BOOTSTRAPPED_FLAG, "1");
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function markRecoveryReloadUsed(): void {
   try {
     sessionStorage.setItem(PAIRING_RELOAD_FLAG, "1");
   } catch {
@@ -96,66 +153,242 @@ function markPairingReloadComplete(): void {
   }
 }
 
-function clearPairingReloadFlag(): void {
+async function fetchPairingBootstrapState(method: "GET" | "POST"): Promise<PairingBootstrapState | null> {
   try {
-    sessionStorage.removeItem(PAIRING_RELOAD_FLAG);
+    const res = await fetch("/api/pairing-bootstrap", { method });
+    if (!res.ok) return null;
+    return (await res.json()) as PairingBootstrapState;
   } catch {
-    // ignore storage failures
+    return null;
   }
 }
 
-function forcePairingReload(reason: string, overlayText: string): void {
-  console.info(`[NeMoClaw] pairing bootstrap: forcing one-time reload (${reason})`);
-  markPairingReloadComplete();
-  setConnectOverlayText(overlayText);
-  window.setTimeout(() => window.location.reload(), FORCED_RELOAD_DELAY_MS);
+function getOverlayTextForPairingState(state: PairingBootstrapState | null): string | null {
+  switch (state?.status) {
+    case "armed":
+      return "Preparing device pairing bootstrap...";
+    case "pending":
+      return "Waiting for device pairing request...";
+    case "approving":
+      return "Approving device pairing...";
+    case "approved-pending-settle":
+      return "Device pairing approved. Waiting for dashboard device to finish pairing...";
+    case "paired-other-device":
+      return "Pairing another device. Waiting for browser dashboard pairing...";
+    case "paired":
+      return "Device paired. Finalizing dashboard...";
+    case "approved":
+      return "Device pairing approved. Waiting for browser dashboard pairing...";
+    case "timeout":
+      return "Pairing bootstrap timed out. Opening dashboard...";
+    case "error":
+      return "Pairing bootstrap hit an error. Opening dashboard...";
+    default:
+      return null;
+  }
 }
 
 function bootstrap() {
   console.info("[NeMoClaw] pairing bootstrap: start");
-  showConnectOverlay();
 
-  const finalizeConnectedState = async () => {
-    setConnectOverlayText("Device pairing approved. Finalizing dashboard...");
-    console.info("[NeMoClaw] pairing bootstrap: reconnect detected");
-    if (shouldForcePairingReload()) {
-      forcePairingReload("post-reconnect", "Device pairing approved. Reloading dashboard...");
-      return;
-    }
-    setConnectOverlayText("Device pairing approved. Verifying dashboard health...");
-    try {
-      console.info("[NeMoClaw] pairing bootstrap: waiting for stable post-reload connection");
-      await waitForStableConnection(
-        STABLE_CONNECTION_WINDOW_MS,
-        STABLE_CONNECTION_TIMEOUT_MS,
-      );
-    } catch {
-      console.warn("[NeMoClaw] pairing bootstrap: stable post-reload connection check timed out; delaying reveal");
-      await new Promise((resolve) => setTimeout(resolve, POST_PAIRING_SETTLE_DELAY_MS));
-    }
-    console.info("[NeMoClaw] pairing bootstrap: reveal app");
-    clearPairingReloadFlag();
-    revealApp();
+  let pairingPollTimer = 0;
+  let overlayTimer = 0;
+  let stopped = false;
+  let dashboardStable = false;
+  let latestPairingState: PairingBootstrapState | null = null;
+  let lastPairingStartAt = 0;
+  let overlayVisible = false;
+  let overlayPriority = -1;
+
+  const stopPairingPoll = () => {
+    stopped = true;
+    if (pairingPollTimer) window.clearTimeout(pairingPollTimer);
+    if (overlayTimer) window.clearTimeout(overlayTimer);
   };
 
-  waitForReconnect(INITIAL_CONNECT_TIMEOUT_MS)
-    .then(finalizeConnectedState)
-    .catch(async () => {
-      console.warn("[NeMoClaw] pairing bootstrap: initial reconnect timed out; extending wait");
-      if (shouldForcePairingReload()) {
-        forcePairingReload("initial-timeout", "Pairing is still settling. Reloading dashboard...");
-        return;
+  const ensureOverlayVisible = () => {
+    if (overlayVisible) return;
+    overlayVisible = true;
+    showConnectOverlay();
+  };
+
+  const setMonotonicOverlayText = (text: string | null, status?: string) => {
+    if (!text) return;
+    const nextPriority = PAIRING_STATUS_PRIORITY[status || ""] ?? overlayPriority;
+    if (nextPriority < overlayPriority) return;
+    overlayPriority = nextPriority;
+    setConnectOverlayText(text);
+  };
+
+  const scheduleOverlay = () => {
+    if (overlayVisible || overlayTimer) return;
+    overlayTimer = window.setTimeout(() => {
+      overlayTimer = 0;
+      ensureOverlayVisible();
+    }, OVERLAY_SHOW_DELAY_MS);
+  };
+
+  const pollPairingState = async () => {
+    if (stopped) return null;
+    const state = await fetchPairingBootstrapState("GET");
+    latestPairingState = state;
+    const text = getOverlayTextForPairingState(state);
+    setMonotonicOverlayText(text, state?.status);
+
+    if (
+      !stopped &&
+      !dashboardStable &&
+      state &&
+      !state.active &&
+      !isPairingTerminal(state) &&
+      Date.now() - lastPairingStartAt >= PAIRING_REARM_INTERVAL_MS
+    ) {
+      const rearmed = await fetchPairingBootstrapState("POST");
+      if (rearmed) {
+        latestPairingState = rearmed;
+        lastPairingStartAt = Date.now();
+        const rearmedText = getOverlayTextForPairingState(rearmed);
+        setMonotonicOverlayText(rearmedText, rearmed.status);
       }
-      setConnectOverlayText("Still waiting for device pairing approval...");
-      try {
-        await waitForReconnect(EXTENDED_CONNECT_TIMEOUT_MS);
-        await finalizeConnectedState();
-      } catch {
-        console.warn("[NeMoClaw] pairing bootstrap: extended reconnect timed out; revealing app anyway");
-        clearPairingReloadFlag();
+    }
+
+    pairingPollTimer = window.setTimeout(pollPairingState, PAIRING_STATUS_POLL_MS);
+    return state;
+  };
+
+  const waitForDashboardReadiness = async (timeoutMs: number, overlayText: string) => {
+    ensureOverlayVisible();
+    setConnectOverlayText(overlayText);
+    await waitForStableConnection(STABLE_CONNECTION_WINDOW_MS, timeoutMs);
+  };
+
+  const handlePairingTerminalWithoutStableConnection = async (reason: string) => {
+    const state = latestPairingState || (await fetchPairingBootstrapState("GET"));
+    const status = state?.status || "unknown";
+    if (isPairingRecoveryEligible(state) && shouldAllowRecoveryReload()) {
+      console.warn(`[NeMoClaw] pairing bootstrap: ${reason}; pairing=${status}; forcing one recovery reload`);
+      stopPairingPoll();
+      markRecoveryReloadUsed();
+      setConnectOverlayText("Pairing succeeded. Recovering dashboard...");
+      window.setTimeout(() => window.location.reload(), 750);
+      return true;
+    }
+    if (isPairingTerminal(state)) {
+      console.warn(`[NeMoClaw] pairing bootstrap: ${reason}; pairing=${status}; revealing app without further delay`);
+      stopPairingPoll();
+      revealApp();
+      return true;
+    }
+    return false;
+  };
+
+  const runReadinessFlow = () => {
+    waitForDashboardReadiness(
+      INITIAL_CONNECT_TIMEOUT_MS,
+      "Auto-approving device pairing. Hang tight...",
+    )
+      .catch(async () => {
+        console.warn("[NeMoClaw] pairing bootstrap: initial dashboard readiness check timed out; extending wait");
+        if (await handlePairingTerminalWithoutStableConnection("initial readiness timed out")) {
+          throw READINESS_HANDLED;
+        }
+        return waitForDashboardReadiness(
+          EXTENDED_CONNECT_TIMEOUT_MS,
+          "Still waiting for device pairing approval...",
+        );
+      })
+      .then(async () => {
+        await new Promise((resolve) => window.setTimeout(resolve, POST_READY_SETTLE_MS));
+        const settledState = await fetchPairingBootstrapState("GET");
+        if (settledState) latestPairingState = settledState;
+
+        dashboardStable = true;
+        console.info("[NeMoClaw] pairing bootstrap: reveal app");
+        stopPairingPoll();
+        setConnectOverlayText("Device pairing approved. Opening dashboard...");
         revealApp();
+      })
+      .catch(async (err: unknown) => {
+        if (err === READINESS_HANDLED) return;
+        if (stopped) return;
+        if (dashboardStable) return;
+        if (await handlePairingTerminalWithoutStableConnection("extended readiness timed out")) {
+          return;
+        }
+        const state = latestPairingState || (await fetchPairingBootstrapState("GET"));
+        const status = state?.status || "unknown";
+        console.warn(`[NeMoClaw] pairing bootstrap: readiness timed out; revealing app anyway (status=${status})`);
+        stopPairingPoll();
+        revealApp();
+      });
+  };
+
+  void (async () => {
+    const initialState = await fetchPairingBootstrapState("GET");
+    latestPairingState = initialState;
+
+    if (initialState && !initialState.active && isPairingTerminal(initialState)) {
+      const shouldWarmStart = isPairingBootstrapped() || initialState.status === "paired";
+      if (shouldWarmStart) {
+        try {
+          await waitForStableConnection(WARM_START_CONNECTION_WINDOW_MS, WARM_START_TIMEOUT_MS);
+          console.info("[NeMoClaw] pairing bootstrap: warm start succeeded");
+          stopPairingPoll();
+          revealApp();
+          return;
+        } catch {
+          // Fall through to normal bootstrap flow.
+        }
       }
-    });
+    }
+
+    if (initialState === null) {
+      // Endpoint missing or failed — fall back to reconnect-only flow.
+      showConnectOverlay();
+      try {
+        await waitForReconnect(INITIAL_CONNECT_TIMEOUT_MS);
+        setConnectOverlayText("Device pairing approved. Finalizing dashboard...");
+        if (shouldAllowRecoveryReload()) {
+          markRecoveryReloadUsed();
+          setConnectOverlayText("Device pairing approved. Reloading dashboard...");
+          window.setTimeout(() => window.location.reload(), FORCED_RELOAD_DELAY_MS);
+          return;
+        }
+        await waitForStableConnection(STABLE_CONNECTION_WINDOW_MS, STABLE_CONNECTION_TIMEOUT_MS);
+      } catch {
+        setConnectOverlayText("Still waiting for device pairing approval...");
+        try {
+          await waitForReconnect(EXTENDED_CONNECT_TIMEOUT_MS);
+          await waitForStableConnection(STABLE_CONNECTION_WINDOW_MS, STABLE_CONNECTION_TIMEOUT_MS);
+        } catch {
+          // reveal anyway
+        }
+      }
+      revealApp();
+      return;
+    }
+
+    scheduleOverlay();
+    const initialText = getOverlayTextForPairingState(initialState);
+    if (initialText) {
+      ensureOverlayVisible();
+      setMonotonicOverlayText(initialText, initialState?.status);
+    }
+
+    if (!initialState.active && !isPairingTerminal(initialState)) {
+      ensureOverlayVisible();
+      const started = await fetchPairingBootstrapState("POST");
+      if (started) {
+        latestPairingState = started;
+        lastPairingStartAt = Date.now();
+        const startedText = getOverlayTextForPairingState(started);
+        setMonotonicOverlayText(startedText, started.status);
+      }
+    }
+
+    await pollPairingState();
+    runReadinessFlow();
+  })();
 
   const keysIngested = ingestKeysFromUrl();
 
