@@ -37,17 +37,18 @@ interface PairingBootstrapState {
   active?: boolean;
   lastApprovalDeviceId?: string;
   lastError?: string;
+  sawBrowserPaired?: boolean;
 }
 
 function isPairingTerminal(state: PairingBootstrapState | null): boolean {
   if (!state) return false;
   if (state.active) return false;
-  return state.status === "approved" || state.status === "paired" || state.status === "timeout" || state.status === "error";
+  return state.status === "paired" || state.status === "timeout" || state.status === "error";
 }
 
 function isPairingRecoveryEligible(state: PairingBootstrapState | null): boolean {
   if (!state) return false;
-  return state.status === "approved" || state.status === "approved-pending-settle" || state.status === "paired";
+  return state.status === "paired";
 }
 
 function inject(): boolean {
@@ -154,11 +155,13 @@ function getOverlayTextForPairingState(state: PairingBootstrapState | null): str
     case "approving":
       return "Approving device pairing...";
     case "approved-pending-settle":
-      return "Device pairing approved. Finalizing dashboard...";
+      return "Device pairing approved. Waiting for dashboard device to finish pairing...";
+    case "paired-other-device":
+      return "Pairing another device. Waiting for browser dashboard pairing...";
     case "paired":
       return "Device paired. Finalizing dashboard...";
     case "approved":
-      return "Device pairing approved. Opening dashboard...";
+      return "Device pairing approved. Waiting for browser dashboard pairing...";
     case "timeout":
       return "Pairing bootstrap timed out. Opening dashboard...";
     case "error":
@@ -232,7 +235,7 @@ function bootstrap() {
     latestPairingState = initialState;
 
     if (initialState && !initialState.active && isPairingTerminal(initialState)) {
-      const shouldWarmStart = isPairingBootstrapped() || initialState.status === "paired" || initialState.status === "approved";
+      const shouldWarmStart = isPairingBootstrapped() || initialState.status === "paired";
       if (shouldWarmStart) {
         try {
           await waitForStableConnection(WARM_START_CONNECTION_WINDOW_MS, WARM_START_TIMEOUT_MS);

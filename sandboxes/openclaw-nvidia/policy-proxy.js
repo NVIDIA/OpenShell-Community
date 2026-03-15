@@ -56,6 +56,7 @@ const pairingBootstrap = {
   lastError: "",
   sawPending: false,
   sawPaired: false,
+  sawBrowserPaired: false,
   active: false,
   timer: null,
   heartbeatAt: 0,
@@ -102,6 +103,7 @@ function pairingSnapshot() {
     lastError: pairingBootstrap.lastError || "",
     sawPending: pairingBootstrap.sawPending,
     sawPaired: pairingBootstrap.sawPaired,
+    sawBrowserPaired: pairingBootstrap.sawBrowserPaired,
     active: pairingBootstrap.active,
     lastApprovalAt: pairingBootstrap.lastApprovalAt || null,
   };
@@ -170,6 +172,11 @@ function summarizeDevices(devices) {
   return `pending=${devices.pending.length} [${format(devices.pending)}] paired=${devices.paired.length} [${format(devices.paired)}]`;
 }
 
+function isBrowserDevice(device) {
+  if (!device || typeof device !== "object") return false;
+  return device.clientId === "openclaw-control-ui" || device.clientMode === "webchat";
+}
+
 function finishPairingBootstrap(status, extra = {}) {
   if (pairingBootstrap.timer) {
     clearTimeout(pairingBootstrap.timer);
@@ -202,6 +209,7 @@ async function runPairingBootstrapTick() {
   const devices = normalizeDeviceList(listResult.stdout);
   const hasPending = devices.pending.length > 0;
   const hasPaired = devices.paired.length > 0;
+  const hasBrowserPaired = devices.paired.some(isBrowserDevice);
 
   if (!listResult.ok && !listResult.stdout.trim()) {
     updatePairingState({
@@ -211,9 +219,10 @@ async function runPairingBootstrapTick() {
     });
   } else {
     updatePairingState({
-      status: hasPending ? "pending" : hasPaired ? "paired" : "armed",
+      status: hasPending ? "pending" : hasBrowserPaired ? "paired" : hasPaired ? "paired-other-device" : "armed",
       sawPending: pairingBootstrap.sawPending || hasPending,
       sawPaired: pairingBootstrap.sawPaired || hasPaired,
+      sawBrowserPaired: pairingBootstrap.sawBrowserPaired || hasBrowserPaired,
     });
   }
 
@@ -273,10 +282,10 @@ async function runPairingBootstrapTick() {
     if (
       pairingBootstrap.approvedCount === 0 &&
       !hasPending &&
-      hasPaired &&
+      hasBrowserPaired &&
       quietPolls >= AUTO_PAIR_QUIET_POLLS
     ) {
-      finishPairingBootstrap("paired");
+      finishPairingBootstrap("paired", { sawBrowserPaired: true });
       return;
     }
 
@@ -284,9 +293,10 @@ async function runPairingBootstrapTick() {
       pairingBootstrap.approvedCount > 0 &&
       pairingBootstrap.lastApprovalAt > 0 &&
       Date.now() - pairingBootstrap.lastApprovalAt >= AUTO_PAIR_APPROVAL_SETTLE_MS &&
+      hasBrowserPaired &&
       quietPolls >= AUTO_PAIR_QUIET_POLLS
     ) {
-      finishPairingBootstrap("approved");
+      finishPairingBootstrap("paired", { sawBrowserPaired: true });
       return;
     }
 
@@ -309,7 +319,7 @@ function startPairingBootstrap(reason, force = false) {
   }
   if (
     !force &&
-    (pairingBootstrap.status === "approved" || pairingBootstrap.status === "paired")
+    pairingBootstrap.status === "paired"
   ) {
     return pairingSnapshot();
   }
@@ -324,6 +334,7 @@ function startPairingBootstrap(reason, force = false) {
     lastError: "",
     sawPending: false,
     sawPaired: false,
+    sawBrowserPaired: false,
     active: true,
     heartbeatAt: 0,
     lastApprovalAt: 0,
