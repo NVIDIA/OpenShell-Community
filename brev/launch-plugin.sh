@@ -54,6 +54,7 @@ touch "$LAUNCH_LOG"
 exec > >(tee -a "$LAUNCH_LOG") 2>&1
 
 APT_UPDATED=0
+PLUGIN_INSTALL_READY=0
 
 log() {
   printf '[launch-plugin.sh] %s\n' "$*"
@@ -125,14 +126,62 @@ resolve_clone_url() {
   fi
 }
 
-clone_or_refresh_community_repo() {
-  local clone_url
+resolve_public_clone_url() {
+  local repo="$1"
+  printf 'https://github.com/%s.git' "$repo"
+}
 
+git_fetch_with_fallback() {
+  local repo_dir="$1"
+  local repo_name="$2"
+  local public_url
+
+  if git -C "$repo_dir" fetch --tags --prune origin; then
+    return 0
+  fi
+
+  public_url="$(resolve_public_clone_url "$repo_name")"
+  log "Fetch failed for $repo_dir; retrying against public remote $public_url"
+  git -C "$repo_dir" remote set-url origin "$public_url"
+  git -C "$repo_dir" fetch --tags --prune origin
+}
+
+git_clone_public_then_token() {
+  local repo_name="$1"
+  local repo_dir="$2"
+  local ref="$3"
+  local public_url auth_url
+
+  public_url="$(resolve_public_clone_url "$repo_name")"
+  if [[ -n "$ref" ]]; then
+    if git clone --branch "$ref" "$public_url" "$repo_dir"; then
+      return 0
+    fi
+  else
+    if git clone "$public_url" "$repo_dir"; then
+      return 0
+    fi
+  fi
+
+  if [[ -z "$GITHUB_TOKEN" ]]; then
+    return 1
+  fi
+
+  auth_url="$(resolve_clone_url "$repo_name")"
+  log "Public clone failed; retrying ${repo_name} with token auth."
+  if [[ -n "$ref" ]]; then
+    git clone --branch "$ref" "$auth_url" "$repo_dir"
+  else
+    git clone "$auth_url" "$repo_dir"
+  fi
+}
+
+clone_or_refresh_community_repo() {
   mkdir -p "$(dirname "$COMMUNITY_DIR")"
 
   if [[ -d "$COMMUNITY_DIR/.git" ]]; then
     log "OpenShell-Community repo already exists at $COMMUNITY_DIR; refreshing checkout."
-    git -C "$COMMUNITY_DIR" fetch --tags --prune origin
+    git_fetch_with_fallback "$COMMUNITY_DIR" "$COMMUNITY_REPO"
     git -C "$COMMUNITY_DIR" checkout "$COMMUNITY_REF"
     git -C "$COMMUNITY_DIR" pull --ff-only origin "$COMMUNITY_REF"
     return
@@ -143,9 +192,11 @@ clone_or_refresh_community_repo() {
     exit 1
   fi
 
-  clone_url="$(resolve_clone_url "$COMMUNITY_REPO")"
   log "Cloning OpenShell-Community into $COMMUNITY_DIR (ref: $COMMUNITY_REF)"
-  git clone --branch "$COMMUNITY_REF" "$clone_url" "$COMMUNITY_DIR"
+  if ! git_clone_public_then_token "$COMMUNITY_REPO" "$COMMUNITY_DIR" "$COMMUNITY_REF"; then
+    log "Unable to clone ${COMMUNITY_REPO}."
+    exit 1
+  fi
 }
 
 resolve_asset_dir() {
@@ -467,40 +518,40 @@ ensure_cli() {
 }
 
 clone_plugin_repo() {
-  local clone_url
-
   mkdir -p "$(dirname "$PLUGIN_DIR")"
 
   if [[ -d "$PLUGIN_DIR/.git" ]]; then
     log "Plugin repo already exists at $PLUGIN_DIR; refreshing checkout."
-    git -C "$PLUGIN_DIR" fetch --tags --prune origin
+    if ! git_fetch_with_fallback "$PLUGIN_DIR" "$PLUGIN_REPO"; then
+      log "Unable to refresh ${PLUGIN_REPO}."
+      return 1
+    fi
     git -C "$PLUGIN_DIR" checkout "$PLUGIN_REF"
     git -C "$PLUGIN_DIR" pull --ff-only origin "$PLUGIN_REF"
-    return
+    return 0
   fi
 
   if [[ -e "$PLUGIN_DIR" ]]; then
     log "Plugin directory exists but is not a git checkout: $PLUGIN_DIR"
-    exit 1
+    return 1
   fi
 
-  clone_url="$(resolve_clone_url "$PLUGIN_REPO")"
-  if [[ -n "$GITHUB_TOKEN" ]]; then
-    log "Cloning plugin repo with token auth into $PLUGIN_DIR"
-  else
-    log "Cloning plugin repo into $PLUGIN_DIR"
+  log "Cloning plugin repo into $PLUGIN_DIR"
+  if ! git_clone_public_then_token "$PLUGIN_REPO" "$PLUGIN_DIR" "$PLUGIN_REF"; then
+    log "Unable to clone ${PLUGIN_REPO}."
+    return 1
   fi
-
-  git clone --branch "$PLUGIN_REF" "$clone_url" "$PLUGIN_DIR"
+  return 0
 }
 
 run_plugin_install_script() {
   if [[ ! -f "$PLUGIN_DIR/install.sh" ]]; then
     log "Plugin install script not found: $PLUGIN_DIR/install.sh"
-    exit 1
+    return 1
   fi
 
   log "Plugin installer available at $PLUGIN_DIR/install.sh"
+  return 0
 }
 
 install_code_server() {
@@ -524,7 +575,7 @@ install_code_server() {
 configure_code_server() {
   local config_dir settings_dir settings_user_dir workspaces_dir workspace_path home_workspace_path
   local terminals_target
-  local chat_ui_url install_cmd install_log auth_export
+  local chat_ui_url install_cmd install_log auth_export manual_cmd terminal_name terminal_desc
 
   config_dir="$TARGET_HOME/.config/code-server"
   settings_dir="$TARGET_HOME/.local/share/code-server"
@@ -539,7 +590,15 @@ configure_code_server() {
   if [[ -n "$OPENCLAW_AUTH_MODE" ]]; then
     auth_export=" export OPENCLAW_AUTH_MODE=\"${OPENCLAW_AUTH_MODE}\" &&"
   fi
-  install_cmd="cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" &&${auth_export} bash ./install.sh 2>&1 | tee \"${install_log}\"; install_status=\${PIPESTATUS[0]}; if [[ \$install_status -eq 0 ]]; then token=\$(grep -Eo 'token=[A-Za-z0-9_-]+' \"${install_log}\" | tail -n 1 | cut -d= -f2 || true); printf '\\nNeMoClaw install finished.\\n'; printf '  CHAT_UI_URL: %s\\n' \"${chat_ui_url}\"; if [[ -n \"$OPENCLAW_AUTH_MODE\" ]]; then printf '  OpenClaw auth mode request: %s\\n' \"$OPENCLAW_AUTH_MODE\"; fi; if [[ -n \"\$token\" ]]; then printf '  OpenClaw token: %s\\n' \"\$token\"; printf '  OpenClaw URL: %s#token=%s\\n' \"${chat_ui_url}\" \"\$token\"; else printf '  OpenClaw token: not found in install output\\n'; fi; printf '  PATH refresh: starting a new login shell so nemoclaw is available.\\n\\n'; fi; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
+  manual_cmd="cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" &&${auth_export} bash ./install.sh"
+  install_cmd="${manual_cmd} 2>&1 | tee \"${install_log}\"; install_status=\${PIPESTATUS[0]}; if [[ \$install_status -eq 0 ]]; then token=\$(grep -Eo 'token=[A-Za-z0-9_-]+' \"${install_log}\" | tail -n 1 | cut -d= -f2 || true); printf '\\nNeMoClaw install finished.\\n'; printf '  CHAT_UI_URL: %s\\n' \"${chat_ui_url}\"; if [[ -n \"$OPENCLAW_AUTH_MODE\" ]]; then printf '  OpenClaw auth mode request: %s\\n' \"$OPENCLAW_AUTH_MODE\"; fi; if [[ -n \"\$token\" ]]; then printf '  OpenClaw token: %s\\n' \"\$token\"; printf '  OpenClaw URL: %s#token=%s\\n' \"${chat_ui_url}\" \"\$token\"; else printf '  OpenClaw token: not found in install output\\n'; fi; printf '  PATH refresh: starting a new login shell so nemoclaw is available.\\n\\n'; fi; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
+  terminal_name="nemoclaw-install"
+  terminal_desc="NemoClaw install"
+  if [[ "$PLUGIN_INSTALL_READY" != "1" ]]; then
+    terminal_name="nemoclaw-install-manual"
+    terminal_desc="NemoClaw install command"
+    install_cmd="printf '\\nPlugin checkout/install script is not available on this host.\\n'; printf 'Run this command manually after repo access is fixed:\\n\\n'; printf '%s\\n\\n' '$(json_escape "$manual_cmd")'; printf 'A fresh login shell will open next so PATH is initialized.\\n\\n'; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
+  fi
 
   sudo -u "$TARGET_USER" mkdir -p "$config_dir" "$settings_user_dir" "$workspaces_dir" "$TARGET_HOME/.vscode"
 
@@ -552,8 +611,8 @@ configure_code_server() {
   "autorun": true,
   "terminals": [
     {
-      "name": "nemoclaw-install",
-      "description": "NemoClaw install",
+      "name": "$(json_escape "$terminal_name")",
+      "description": "$(json_escape "$terminal_desc")",
       "open": true,
       "focus": true,
       "commands": [
@@ -621,7 +680,11 @@ print_next_steps() {
   log "OpenClaw UI origin: $(derive_chat_ui_url)"
   log "code-server URL: http://$(hostname -f 2>/dev/null || hostname):${CODE_SERVER_PORT}"
   log "code-server service: journalctl -u code-server@${TARGET_USER} -f"
-  log "Next step: open code-server and complete the interactive install in the auto-opened terminal"
+  if [[ "$PLUGIN_INSTALL_READY" == "1" ]]; then
+    log "Next step: open code-server and complete the interactive install in the auto-opened terminal"
+  else
+    log "Next step: open code-server and use the auto-opened terminal command once plugin repo access is fixed"
+  fi
 }
 
 main() {
@@ -646,10 +709,16 @@ main() {
   resolve_asset_dir
 
   step "Cloning plugin repo"
-  clone_plugin_repo
+  if ! clone_plugin_repo; then
+    log "Plugin repository is unavailable. Continuing in manual-command mode."
+  fi
 
   step "Preparing plugin installer"
-  run_plugin_install_script
+  if run_plugin_install_script; then
+    PLUGIN_INSTALL_READY=1
+  else
+    log "Plugin installer is unavailable. The terminal will print the intended install command instead of running it."
+  fi
 
   step "Installing code-server"
   install_code_server
