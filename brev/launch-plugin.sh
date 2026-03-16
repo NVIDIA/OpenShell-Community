@@ -575,7 +575,7 @@ install_code_server() {
 configure_code_server() {
   local config_dir settings_dir settings_user_dir workspaces_dir workspace_path home_workspace_path
   local terminals_target
-  local chat_ui_url install_cmd install_log auth_export manual_cmd terminal_name terminal_desc
+  local chat_ui_url install_cmd install_log auth_export manual_cmd terminal_name terminal_desc post_install_cmd install_workflow_cmd
 
   config_dir="$TARGET_HOME/.config/code-server"
   settings_dir="$TARGET_HOME/.local/share/code-server"
@@ -590,8 +590,10 @@ configure_code_server() {
   if [[ -n "$OPENCLAW_AUTH_MODE" ]]; then
     auth_export=" export OPENCLAW_AUTH_MODE=\"${OPENCLAW_AUTH_MODE}\" &&"
   fi
-  manual_cmd="cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" &&${auth_export} bash ./install.sh"
-  install_cmd="${manual_cmd} 2>&1 | tee \"${install_log}\"; install_status=\${PIPESTATUS[0]}; if [[ \$install_status -eq 0 ]]; then token=\$(grep -Eo 'token=[A-Za-z0-9_-]+' \"${install_log}\" | tail -n 1 | cut -d= -f2 || true); printf '\\nNeMoClaw install finished.\\n'; printf '  CHAT_UI_URL: %s\\n' \"${chat_ui_url}\"; if [[ -n \"$OPENCLAW_AUTH_MODE\" ]]; then printf '  OpenClaw auth mode request: %s\\n' \"$OPENCLAW_AUTH_MODE\"; fi; if [[ -n \"\$token\" ]]; then printf '  OpenClaw token: %s\\n' \"\$token\"; printf '  OpenClaw URL: %s#token=%s\\n' \"${chat_ui_url}\" \"\$token\"; else printf '  OpenClaw token: not found in install output\\n'; fi; printf '  PATH refresh: starting a new login shell so nemoclaw is available.\\n\\n'; fi; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
+  post_install_cmd="CHAT_UI_URL=\"${chat_ui_url}\" bash \"${COMMUNITY_DIR}/brev/nemoclaw-plugin/print-openclaw-url.sh\" || true"
+  install_workflow_cmd="cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" &&${auth_export} bash ./install.sh 2>&1 | tee \"${install_log}\"; install_status=\${PIPESTATUS[0]}; if [[ \$install_status -eq 0 ]]; then ${post_install_cmd}; token=\$(grep -Eo 'token=[A-Za-z0-9_-]+' \"${install_log}\" | tail -n 1 | cut -d= -f2 || true); printf '\\nNeMoClaw install finished.\\n'; printf '  CHAT_UI_URL: %s\\n' \"${chat_ui_url}\"; if [[ -n \"$OPENCLAW_AUTH_MODE\" ]]; then printf '  OpenClaw auth mode request: %s\\n' \"$OPENCLAW_AUTH_MODE\"; fi; if [[ -n \"\$token\" ]]; then printf '  OpenClaw token: %s\\n' \"\$token\"; printf '  OpenClaw URL: %s#token=%s\\n' \"${chat_ui_url}\" \"\$token\"; else printf '  OpenClaw token: not found in install output\\n'; fi; printf '  PATH refresh: starting a new login shell so nemoclaw is available.\\n\\n'; fi; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
+  manual_cmd="${install_workflow_cmd}"
+  install_cmd="${install_workflow_cmd}"
   terminal_name="nemoclaw-install"
   terminal_desc="NemoClaw install"
   if [[ "$PLUGIN_INSTALL_READY" != "1" ]]; then
