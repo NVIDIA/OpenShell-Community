@@ -215,22 +215,22 @@ wait_for_tcp_port() {
 
 derive_chat_ui_url() {
   local env_id=""
+  local host_name=""
 
   if [[ -n "${CHAT_UI_URL:-}" ]]; then
     printf '%s\n' "$CHAT_UI_URL"
     return
   fi
 
-  if [[ -n "${VSCODE_PROXY_URI:-}" ]]; then
-    env_id="$(printf '%s\n' "$VSCODE_PROXY_URI" | sed -E 's#.*code-server[0-9]+-([^.]+)\.brevlab\.com.*#\1#')"
-    if [[ -n "$env_id" && "$env_id" != "$VSCODE_PROXY_URI" ]]; then
-      printf 'https://openclaw-%s.brevlab.com\n' "$env_id"
-      return
-    fi
-  fi
-
   if [[ -n "${BREV_ENV_ID:-}" ]]; then
     printf 'https://openclaw-%s.brevlab.com\n' "$BREV_ENV_ID"
+    return
+  fi
+
+  host_name="$(hostname 2>/dev/null || true)"
+  env_id="$(printf '%s\n' "$host_name" | sed -E 's/^brev-([[:alnum:]]+)$/\1/')"
+  if [[ -n "$env_id" && "$env_id" != "$host_name" ]]; then
+    printf 'https://openclaw-%s.brevlab.com\n' "$env_id"
     return
   fi
 
@@ -275,7 +275,7 @@ gh_auth_if_needed() {
     return
   fi
 
-  if gh auth status >/dev/null 2>&1; then
+  if GH_TOKEN="${GITHUB_TOKEN:-}" gh auth status >/dev/null 2>&1; then
     return
   fi
 
@@ -285,7 +285,14 @@ gh_auth_if_needed() {
   fi
 
   log "Authenticating GitHub CLI from environment token..."
-  printf '%s\n' "$GITHUB_TOKEN" | gh auth login --with-token >/dev/null 2>&1
+  if ! printf '%s\n' "$GITHUB_TOKEN" | gh auth login --hostname github.com --with-token >/dev/null 2>&1; then
+    log "gh auth login failed; continuing with direct HTTPS token auth for git operations."
+    return
+  fi
+
+  if ! GH_TOKEN="$GITHUB_TOKEN" gh auth status >/dev/null 2>&1; then
+    log "gh auth status still reports unauthenticated; continuing with direct HTTPS token auth for git operations."
+  fi
 }
 
 resolve_ghcr_user() {
@@ -293,8 +300,8 @@ resolve_ghcr_user() {
     return 0
   fi
 
-  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    GHCR_USER="$(gh api user -q .login 2>/dev/null || true)"
+  if command -v gh >/dev/null 2>&1 && GH_TOKEN="${GITHUB_TOKEN:-}" gh auth status >/dev/null 2>&1; then
+    GHCR_USER="$(GH_TOKEN="${GITHUB_TOKEN:-}" gh api user -q .login 2>/dev/null || true)"
   fi
 
   if [[ -z "$GHCR_USER" ]]; then
@@ -304,7 +311,41 @@ resolve_ghcr_user() {
   [[ -n "$GHCR_USER" ]]
 }
 
+docker_login_ghcr_for_user() {
+  local login_user="$1"
+
+  if [[ "$login_user" == "root" ]]; then
+    log "Logging into ghcr.io as $GHCR_USER for root ..."
+    if printf '%s\n' "$GITHUB_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1; then
+      log "GHCR login succeeded for root."
+      return 0
+    fi
+    log "GHCR login failed for root."
+    return 1
+  fi
+
+  log "Logging into ghcr.io as $GHCR_USER for user $login_user ..."
+  if [[ "$login_user" == "$(id -un)" ]]; then
+    if printf '%s\n' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1; then
+      log "GHCR login succeeded for user $login_user."
+      return 0
+    fi
+    log "GHCR login failed for user $login_user."
+    return 1
+  fi
+
+  if sudo -H -u "$login_user" env GITHUB_TOKEN="$GITHUB_TOKEN" GHCR_USER="$GHCR_USER" bash -lc \
+    'printf "%s\n" "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1'; then
+    log "GHCR login succeeded for user $login_user."
+    return 0
+  fi
+  log "GHCR login failed for user $login_user."
+  return 1
+}
+
 docker_login_ghcr_if_needed() {
+  local login_failed=0
+
   if [[ -z "$GITHUB_TOKEN" ]]; then
     log "No GitHub token provided; skipping GHCR login."
     return
@@ -320,9 +361,17 @@ docker_login_ghcr_if_needed() {
     return
   fi
 
-  log "Authenticating Docker to ghcr.io for ${TARGET_USER}..."
-  printf '%s\n' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1 || true
-  printf '%s\n' "$GITHUB_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1 || true
+  docker_login_ghcr_for_user "root" || login_failed=1
+
+  if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+    docker_login_ghcr_for_user "$SUDO_USER" || login_failed=1
+  elif [[ "$(id -un)" != "root" ]]; then
+    docker_login_ghcr_for_user "$(id -un)" || login_failed=1
+  fi
+
+  if [[ "$login_failed" -ne 0 ]]; then
+    log "One or more GHCR logins failed. Continuing, but private image pulls may fail."
+  fi
 }
 
 ensure_node() {
