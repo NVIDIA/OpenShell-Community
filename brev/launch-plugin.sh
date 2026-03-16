@@ -370,16 +370,6 @@ ensure_cli() {
   install_cli_from_release
 }
 
-ensure_openclaw() {
-  if command -v openclaw >/dev/null 2>&1; then
-    log "OpenClaw already installed: $(openclaw --version 2>/dev/null | head -n 1)"
-    return
-  fi
-
-  log "Installing OpenClaw ${OPENCLAW_VERSION}..."
-  sudo_npm install -g "openclaw@${OPENCLAW_VERSION}"
-}
-
 clone_plugin_repo() {
   local clone_url
 
@@ -408,23 +398,17 @@ clone_plugin_repo() {
   git clone --branch "$PLUGIN_REF" "$clone_url" "$PLUGIN_DIR"
 }
 
-install_plugin() {
-  log "Installing openshell-openclaw-plugin globally from $PLUGIN_DIR"
-  sudo_npm install -g "$PLUGIN_DIR"
-}
+run_plugin_install_script() {
+  if [[ ! -f "$PLUGIN_DIR/install.sh" ]]; then
+    log "Plugin install script not found: $PLUGIN_DIR/install.sh"
+    exit 1
+  fi
 
-build_openclaw_plugin() {
-  log "Building local OpenClaw plugin payload from $PLUGIN_DIR/nemoclaw"
+  log "Running plugin installer from $PLUGIN_DIR/install.sh"
   (
-    cd "$PLUGIN_DIR/nemoclaw"
-    npm install
-    npm run build
+    cd "$PLUGIN_DIR"
+    bash ./install.sh
   )
-}
-
-install_openclaw_plugin() {
-  log "Installing NemoClaw into OpenClaw from local checkout"
-  openclaw plugins install "$PLUGIN_DIR/nemoclaw"
 }
 
 install_code_server() {
@@ -540,7 +524,7 @@ print_next_steps() {
   log "Plugin repo: $PLUGIN_DIR"
   log "code-server URL: http://$(hostname -f 2>/dev/null || hostname):${CODE_SERVER_PORT}"
   log "code-server service: journalctl -u code-server@${TARGET_USER} -f"
-  log "Next step: run 'nemoclaw setup' as ${TARGET_USER}"
+  log "Verify plugin commands: openclaw nemoclaw status"
 }
 
 main() {
@@ -553,7 +537,6 @@ main() {
   ensure_base_packages
 
   step "Installing runtime prerequisites"
-  ensure_node
   ensure_docker
   ensure_gh
   gh_auth_if_needed
@@ -565,14 +548,11 @@ main() {
   step "Resolving launch assets"
   resolve_asset_dir
 
-  step "Installing OpenClaw"
-  ensure_openclaw
-
-  step "Cloning and installing plugin"
+  step "Cloning plugin repo"
   clone_plugin_repo
-  build_openclaw_plugin
-  install_openclaw_plugin
-  install_plugin
+
+  step "Running plugin installer"
+  run_plugin_install_script
 
   step "Installing code-server"
   install_code_server
