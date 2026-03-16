@@ -60,7 +60,7 @@ print_manual_mode() {
   printf '\nA fresh login shell will open next so PATH is initialized.\n\n'
   source ~/.profile >/dev/null 2>&1 || true
   source ~/.bashrc >/dev/null 2>&1 || true
-  exec bash -l
+  exec bash -il
 }
 
 main() {
@@ -85,7 +85,7 @@ main() {
     log "Install autorun already completed once; skipping rerun."
     source ~/.profile >/dev/null 2>&1 || true
     source ~/.bashrc >/dev/null 2>&1 || true
-    exec bash -l
+    exec bash -il
   fi
 
   mark_ran
@@ -123,7 +123,7 @@ main() {
 
   source ~/.profile >/dev/null 2>&1 || true
   source ~/.bashrc >/dev/null 2>&1 || true
-  exec bash -l
+  exec bash -il
 }
 
 main "$@"
