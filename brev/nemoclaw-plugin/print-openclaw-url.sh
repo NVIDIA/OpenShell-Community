@@ -38,6 +38,12 @@ require_cmd() {
   fi
 }
 
+ensure_forward() {
+  local sandbox_name="$1"
+  log "Ensuring forwarder is running for sandbox '${sandbox_name}' on port 18789"
+  openshell forward start 18789 "$sandbox_name" --background >/dev/null 2>&1 || true
+}
+
 derive_chat_ui_url() {
   local env_id=""
   local host_name=""
@@ -64,8 +70,24 @@ derive_chat_ui_url() {
 
 detect_sandbox_name() {
   python3 - <<'PY'
+import re
 import subprocess
 import sys
+
+def run_list(args):
+    try:
+        return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT)
+    except Exception:
+        return ""
+
+def strip_ansi(s):
+    return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", s)
+
+out = run_list(["openshell", "sandbox", "list", "--names"])
+names = [line.strip() for line in strip_ansi(out).splitlines() if line.strip()]
+if names:
+    print(names[0])
+    raise SystemExit(0)
 
 try:
     out = subprocess.check_output(["openshell", "sandbox", "list"], text=True, stderr=subprocess.STDOUT)
@@ -73,11 +95,23 @@ except subprocess.CalledProcessError as exc:
     sys.stderr.write(exc.output)
     raise
 
+out = strip_ansi(out)
+fallback = ""
 for line in out.splitlines():
     parts = line.split()
-    if len(parts) >= 4 and parts[1] == "openshell" and parts[-1].lower() == "ready":
+    if not parts:
+        continue
+    if parts[0].lower() in {"name", "sandbox"}:
+        continue
+    if not fallback:
+        fallback = parts[0]
+    lowered = [p.lower() for p in parts]
+    if "ready" in lowered:
         print(parts[0])
         break
+else:
+    if fallback:
+        print(fallback)
 PY
 }
 
@@ -123,6 +157,7 @@ main() {
   fi
 
   chat_ui_url="$(derive_chat_ui_url)"
+  ensure_forward "$sandbox_name"
   download_dir="$(mktemp -d "${TMP_DIR%/}/openclaw-url.XXXXXX")"
   downloaded_path="${download_dir}/openclaw.json"
 

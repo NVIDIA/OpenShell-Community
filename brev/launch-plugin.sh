@@ -575,7 +575,8 @@ install_code_server() {
 configure_code_server() {
   local config_dir settings_dir settings_user_dir workspaces_dir workspace_path home_workspace_path
   local terminals_target
-  local chat_ui_url install_cmd install_log auth_export manual_cmd terminal_name terminal_desc post_install_cmd install_workflow_cmd
+  local chat_ui_url install_cmd install_log auth_export manual_cmd terminal_name terminal_desc
+  local wrapper_cmd manual_print_cmd run_once_marker
 
   config_dir="$TARGET_HOME/.config/code-server"
   settings_dir="$TARGET_HOME/.local/share/code-server"
@@ -586,20 +587,32 @@ configure_code_server() {
   terminals_target="$TARGET_HOME/.vscode/terminals.json"
   chat_ui_url="$(derive_chat_ui_url)"
   install_log="/tmp/nemoclaw-plugin-install.log"
+  run_once_marker="$TARGET_HOME/.cache/nemoclaw-plugin/install-ran"
   auth_export=""
   if [[ -n "$OPENCLAW_AUTH_MODE" ]]; then
     auth_export=" export OPENCLAW_AUTH_MODE=\"${OPENCLAW_AUTH_MODE}\" &&"
   fi
-  post_install_cmd="CHAT_UI_URL=\"${chat_ui_url}\" bash \"${COMMUNITY_DIR}/brev/nemoclaw-plugin/print-openclaw-url.sh\" || true"
-  install_workflow_cmd="cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" &&${auth_export} bash ./install.sh 2>&1 | tee \"${install_log}\"; install_status=\${PIPESTATUS[0]}; if [[ \$install_status -eq 0 ]]; then ${post_install_cmd}; token=\$(grep -Eo 'token=[A-Za-z0-9_-]+' \"${install_log}\" | tail -n 1 | cut -d= -f2 || true); printf '\\nNeMoClaw install finished.\\n'; printf '  CHAT_UI_URL: %s\\n' \"${chat_ui_url}\"; if [[ -n \"$OPENCLAW_AUTH_MODE\" ]]; then printf '  OpenClaw auth mode request: %s\\n' \"$OPENCLAW_AUTH_MODE\"; fi; if [[ -n \"\$token\" ]]; then printf '  OpenClaw token: %s\\n' \"\$token\"; printf '  OpenClaw URL: %s#token=%s\\n' \"${chat_ui_url}\" \"\$token\"; else printf '  OpenClaw token: not found in install output\\n'; fi; printf '  PATH refresh: starting a new login shell so nemoclaw is available.\\n\\n'; fi; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
-  manual_cmd="${install_workflow_cmd}"
-  install_cmd="${install_workflow_cmd}"
+  wrapper_cmd="mkdir -p \"${TARGET_HOME}/.cache/nemoclaw-plugin\" && if [[ -f \"${run_once_marker}\" ]]; then printf 'NeMoClaw install autorun already ran. Opening a fresh login shell.\\n\\n'; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l; fi; cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" && export INSTALL_LOG=\"${install_log}\" && export PLUGIN_DIR=\"${PLUGIN_DIR}\" && export RUN_ONCE_MARKER=\"${run_once_marker}\" &&${auth_export} bash \"${COMMUNITY_DIR}/brev/nemoclaw-plugin/run-plugin-install.sh\""
+  manual_cmd="${wrapper_cmd}"
+  install_cmd="${wrapper_cmd}"
   terminal_name="nemoclaw-install"
   terminal_desc="NemoClaw install"
   if [[ "$PLUGIN_INSTALL_READY" != "1" ]]; then
     terminal_name="nemoclaw-install-manual"
     terminal_desc="NemoClaw install command"
-    install_cmd="printf '\\nPlugin checkout/install script is not available on this host.\\n'; printf 'Run this command manually after repo access is fixed:\\n\\n'; printf '%s\\n\\n' '$(json_escape "$manual_cmd")'; printf 'A fresh login shell will open next so PATH is initialized.\\n\\n'; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
+    manual_print_cmd="$(cat <<EOF
+printf '\\nPlugin checkout/install script is not available on this host.\\n'
+printf 'Run this command manually after repo access is fixed:\\n\\n'
+cat <<'__NEMOCLAW_MANUAL_CMD__'
+${manual_cmd}
+__NEMOCLAW_MANUAL_CMD__
+printf '\\nA fresh login shell will open next so PATH is initialized.\\n\\n'
+source ~/.profile >/dev/null 2>&1 || true
+source ~/.bashrc >/dev/null 2>&1 || true
+exec bash -l
+EOF
+)"
+    install_cmd="${manual_print_cmd}"
   fi
 
   sudo -u "$TARGET_USER" mkdir -p "$config_dir" "$settings_user_dir" "$workspaces_dir" "$TARGET_HOME/.vscode"
