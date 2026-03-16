@@ -22,7 +22,7 @@ COMMUNITY_REPO="${COMMUNITY_REPO:-NVIDIA/OpenShell-Community}"
 COMMUNITY_REF="${COMMUNITY_REF:-${COMMUNITY_BRANCH:-main}}"
 COMMUNITY_CLONE_ROOT="${COMMUNITY_CLONE_ROOT:-}"
 COMMUNITY_DIR="${COMMUNITY_DIR:-}"
-PLUGIN_REPO="${PLUGIN_REPO:-NVIDIA/openshell-openclaw-plugin}"
+PLUGIN_REPO="${PLUGIN_REPO:-NVIDIA/NemoClaw}"
 PLUGIN_REF="${PLUGIN_REF:-main}"
 PLUGIN_CLONE_ROOT="${PLUGIN_CLONE_ROOT:-}"
 PLUGIN_DIR="${PLUGIN_DIR:-}"
@@ -575,8 +575,8 @@ install_code_server() {
 configure_code_server() {
   local config_dir settings_dir settings_user_dir workspaces_dir workspace_path home_workspace_path
   local terminals_target
-  local chat_ui_url install_cmd install_log auth_export manual_cmd terminal_name terminal_desc
-  local wrapper_cmd manual_print_cmd run_once_marker
+  local chat_ui_url install_cmd install_log auth_export terminal_name terminal_desc
+  local wrapper_cmd fallback_cmd run_once_marker
 
   config_dir="$TARGET_HOME/.config/code-server"
   settings_dir="$TARGET_HOME/.local/share/code-server"
@@ -593,26 +593,14 @@ configure_code_server() {
     auth_export=" export OPENCLAW_AUTH_MODE=\"${OPENCLAW_AUTH_MODE}\" &&"
   fi
   wrapper_cmd="mkdir -p \"${TARGET_HOME}/.cache/nemoclaw-plugin\" && if [[ -f \"${run_once_marker}\" ]]; then printf 'NeMoClaw install autorun already ran. Opening a fresh login shell.\\n\\n'; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l; fi; cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" && export INSTALL_LOG=\"${install_log}\" && export PLUGIN_DIR=\"${PLUGIN_DIR}\" && export RUN_ONCE_MARKER=\"${run_once_marker}\" &&${auth_export} bash \"${COMMUNITY_DIR}/brev/nemoclaw-plugin/run-plugin-install.sh\""
-  manual_cmd="${wrapper_cmd}"
   install_cmd="${wrapper_cmd}"
   terminal_name="nemoclaw-install"
   terminal_desc="NemoClaw install"
   if [[ "$PLUGIN_INSTALL_READY" != "1" ]]; then
     terminal_name="nemoclaw-install-manual"
     terminal_desc="NemoClaw install command"
-    manual_print_cmd="$(cat <<EOF
-printf '\\nPlugin checkout/install script is not available on this host.\\n'
-printf 'Run this command manually after repo access is fixed:\\n\\n'
-cat <<'__NEMOCLAW_MANUAL_CMD__'
-${manual_cmd}
-__NEMOCLAW_MANUAL_CMD__
-printf '\\nA fresh login shell will open next so PATH is initialized.\\n\\n'
-source ~/.profile >/dev/null 2>&1 || true
-source ~/.bashrc >/dev/null 2>&1 || true
-exec bash -l
-EOF
-)"
-    install_cmd="${manual_print_cmd}"
+    fallback_cmd="export CHAT_UI_URL=\"${chat_ui_url}\" && export INSTALL_LOG=\"${install_log}\" && export PLUGIN_DIR=\"${PLUGIN_DIR}\" && export RUN_ONCE_MARKER=\"${run_once_marker}\" && export PRINT_ONLY=1 &&${auth_export} bash \"${COMMUNITY_DIR}/brev/nemoclaw-plugin/run-plugin-install.sh\""
+    install_cmd="${fallback_cmd}"
   fi
 
   sudo -u "$TARGET_USER" mkdir -p "$config_dir" "$settings_user_dir" "$workspaces_dir" "$TARGET_HOME/.vscode"

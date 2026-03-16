@@ -10,6 +10,7 @@ OPENCLAW_AUTH_MODE="${OPENCLAW_AUTH_MODE:-}"
 INSTALL_LOG="${INSTALL_LOG:-/tmp/nemoclaw-plugin-install.log}"
 PRINT_URL_SCRIPT="${PRINT_URL_SCRIPT:-$SCRIPT_DIR/print-openclaw-url.sh}"
 RUN_ONCE_MARKER="${RUN_ONCE_MARKER:-$HOME/.cache/nemoclaw-plugin/install-ran}"
+PRINT_ONLY="${PRINT_ONLY:-0}"
 
 log() {
   printf '[%s] %s\n' "$SCRIPT_NAME" "$*"
@@ -27,6 +28,7 @@ Environment:
   PLUGIN_DIR           Plugin checkout directory containing install.sh.
   OPENCLAW_AUTH_MODE   Optional auth mode forwarded to install.sh.
   INSTALL_LOG          Optional install log path. Default: ${INSTALL_LOG}
+  PRINT_ONLY           If set to 1, print the manual wrapper command and exit to a shell.
 EOF
 }
 
@@ -43,6 +45,24 @@ mark_ran() {
   : > "$RUN_ONCE_MARKER"
 }
 
+print_manual_mode() {
+  local manual_cmd
+
+  manual_cmd="export CHAT_UI_URL=\"$CHAT_UI_URL\" && export INSTALL_LOG=\"$INSTALL_LOG\" && export PLUGIN_DIR=\"$PLUGIN_DIR\" && export RUN_ONCE_MARKER=\"$RUN_ONCE_MARKER\""
+  if [[ -n "$OPENCLAW_AUTH_MODE" ]]; then
+    manual_cmd="${manual_cmd} && export OPENCLAW_AUTH_MODE=\"$OPENCLAW_AUTH_MODE\""
+  fi
+  manual_cmd="${manual_cmd} && bash \"$SCRIPT_DIR/run-plugin-install.sh\""
+
+  printf '\nPlugin checkout/install script is not available on this host.\n'
+  printf 'Run this command manually after repo access is fixed:\n\n'
+  printf '%s\n' "$manual_cmd"
+  printf '\nA fresh login shell will open next so PATH is initialized.\n\n'
+  source ~/.profile >/dev/null 2>&1 || true
+  source ~/.bashrc >/dev/null 2>&1 || true
+  exec bash -l
+}
+
 main() {
   local install_cmd=()
   local install_status token
@@ -55,6 +75,10 @@ main() {
   if [[ -z "$CHAT_UI_URL" ]]; then
     log "CHAT_UI_URL is required."
     exit 1
+  fi
+
+  if [[ "$PRINT_ONLY" == "1" ]]; then
+    print_manual_mode
   fi
 
   if [[ -f "$RUN_ONCE_MARKER" ]]; then
