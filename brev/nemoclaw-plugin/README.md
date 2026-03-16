@@ -1,12 +1,12 @@
 # NemoClaw for OpenClaw
 
 Use NemoClaw through OpenClaw to drive OpenShell-backed sandbox workflows.
-This launchable is opinionated toward OpenClaw as the primary interface and
+This Launchable is opinionated toward OpenClaw as the primary interface and
 OpenShell as the runtime beneath it.
 
 ## Launchable Flow
 
-When this Brev launchable completes host setup, it opens `code-server` and
+When this Brev Launchable completes host setup, it opens `code-server` and
 starts an interactive terminal that runs:
 
 ```bash
@@ -14,15 +14,9 @@ cd /home/ubuntu/openshell-openclaw-plugin
 bash ./install.sh
 ```
 
-That installer is the maintained setup path from the plugin repo. Complete the
-interactive onboarding there. The patched upstream onboarding flow now starts
-the actual in-sandbox OpenClaw gateway behind the forwarded `127.0.0.1:18789`
-listener.
-
 ## Manual Install
 
-If you want to run the plugin installer yourself later, use the checkout
-created by `brev/launch-plugin.sh`:
+If you want to run the plugin installer yourself:
 
 ```bash
 cd /home/ubuntu/openshell-openclaw-plugin
@@ -38,35 +32,48 @@ cd /home/ubuntu/openshell-openclaw-plugin
 bash ./install.sh
 ```
 
-Private GitHub checkout:
+## NemoClaw Commands
 
-```bash
-cd /home/ubuntu
-git clone https://x-access-token:${GITHUB_TOKEN}@github.com/NVIDIA/openshell-openclaw-plugin.git
-cd /home/ubuntu/openshell-openclaw-plugin
-bash ./install.sh
-```
-
-## OpenClaw Commands
+### Getting Started
 
 | Command | Description |
 |---------|-------------|
-| `openclaw nemoclaw launch` | Fresh install into OpenShell (warns net-new users) |
-| `openclaw nemoclaw migrate` | Migrate host OpenClaw into sandbox (snapshot + cutover) |
-| `openclaw nemoclaw connect` | Interactive shell into the sandbox |
-| `openclaw nemoclaw status` | Blueprint state, sandbox health, inference config |
-| `openclaw nemoclaw eject` | Rollback to host installation from snapshot |
-| `openclaw nemoclaw onboard` | Interactive onboarding for API key, endpoint, and model selection |
-| `/nemoclaw` | Slash command in chat (status, eject) |
+| `nemoclaw onboard` | Interactive setup wizard (recommended) |
+| `nemoclaw setup` | Legacy setup (deprecated, use `onboard`) |
+| `nemoclaw setup-spark` | Set up on DGX Spark (fixes cgroup v2 + Docker) |
+
+### Sandbox Management
+
+| Command | Description |
+|---------|-------------|
+| `nemoclaw list` | List all sandboxes |
+| `nemoclaw <name> connect` | Connect to a sandbox |
+| `nemoclaw <name> status` | Show sandbox status and health |
+| `nemoclaw <name> logs [--follow]` | View sandbox logs |
+| `nemoclaw <name> destroy` | Stop NIM + delete sandbox |
+
+### Policy Presets
+
+| Command | Description |
+|---------|-------------|
+| `nemoclaw <name> policy-add` | Add a policy preset to a sandbox |
+| `nemoclaw <name> policy-list` | List presets (● = applied) |
+
+### Deploy
+
+| Command | Description |
+|---------|-------------|
+| `nemoclaw deploy <instance>` | Deploy to a Brev VM and start services |
+
+### Services
+
+| Command | Description |
+|---------|-------------|
+| `nemoclaw start` | Start services (Telegram, tunnel) |
+| `nemoclaw stop` | Stop all services |
+| `nemoclaw status` | Show sandbox list and service status |
 
 ## Usage
-
-### Connect to the sandbox
-
-```bash
-nemoclaw connect                # local
-nemoclaw connect my-gpu-box     # remote Brev instance
-```
 
 ### Run OpenClaw (inside the sandbox)
 
