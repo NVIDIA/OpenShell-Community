@@ -22,9 +22,10 @@ RUN apt-get update && \
 
 # Bake the NeMoClaw default policy into the same location used by the
 # OpenClaw base image so direct image launches and create-time --policy
-# launches start from the same policy.
-RUN mkdir -p /etc/navigator
-COPY policy.yaml /etc/navigator/policy.yaml
+# launches start from the same policy. (Start script and policy-proxy
+# read from /etc/openshell/policy.yaml.)
+RUN mkdir -p /etc/openshell
+COPY policy.yaml /etc/openshell/policy.yaml
 
 # Override the startup script with our version (adds runtime API key injection)
 COPY openclaw-nvidia-start.sh /usr/local/bin/openclaw-nvidia-start
@@ -44,8 +45,7 @@ RUN npm install -g @hono/node-server@1.19.11
 
 # Allow the sandbox user to read the default policy (the startup script
 # copies it to a writable location; this chown covers non-Landlock envs).
-# Some base image variants do not pre-create /etc/navigator.
-RUN mkdir -p /etc/navigator && chown -R sandbox:sandbox /etc/navigator
+RUN mkdir -p /etc/openshell && chown -R sandbox:sandbox /etc/openshell
 # Stage the NeMoClaw DevX extension source
 COPY nemoclaw-ui-extension/extension/ /opt/nemoclaw-devx/
 
@@ -79,5 +79,14 @@ RUN set -e; \
 # --prefix without pulling missing internal deps like @npmcli/docs.)
 RUN npm install -g tar@7.5.11 && \
     npm --prefix "$(npm root -g)/openclaw" update tar
+
+# Sandbox-specific agent skills (e.g. OpenShell network policy fail-fast).
+# Installed into ~/.agents/skills and symlinked into ~/.claude/skills for discovery.
+COPY skills/ /sandbox/.agents/skills/
+RUN for skill in /sandbox/.agents/skills/*/; do \
+      [ -d "$skill" ] || continue; \
+      ln -sf "$skill" "/sandbox/.claude/skills/$(basename "$skill")"; \
+    done && \
+    chown -R sandbox:sandbox /sandbox/.agents/skills /sandbox/.claude/skills
 
 ENTRYPOINT ["/bin/bash"]
