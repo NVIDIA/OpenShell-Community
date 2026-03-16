@@ -20,20 +20,33 @@ GHCR_USER="${GHCR_USER:-}"
 GIT_HTTP_USER="${GIT_HTTP_USER:-${GHCR_USER:-x-access-token}}"
 COMMUNITY_REPO="${COMMUNITY_REPO:-NVIDIA/OpenShell-Community}"
 COMMUNITY_REF="${COMMUNITY_REF:-${COMMUNITY_BRANCH:-main}}"
-COMMUNITY_CLONE_ROOT="${COMMUNITY_CLONE_ROOT:-/home/ubuntu}"
+COMMUNITY_CLONE_ROOT="${COMMUNITY_CLONE_ROOT:-}"
 COMMUNITY_DIR="${COMMUNITY_DIR:-$COMMUNITY_CLONE_ROOT/OpenShell-Community}"
 PLUGIN_REPO="${PLUGIN_REPO:-NVIDIA/openshell-openclaw-plugin}"
 PLUGIN_REF="${PLUGIN_REF:-main}"
-PLUGIN_CLONE_ROOT="${PLUGIN_CLONE_ROOT:-/home/ubuntu}"
+PLUGIN_CLONE_ROOT="${PLUGIN_CLONE_ROOT:-}"
 PLUGIN_DIR="${PLUGIN_DIR:-$PLUGIN_CLONE_ROOT/openshell-openclaw-plugin}"
 CLI_BIN="${CLI_BIN:-openshell}"
 CLI_RELEASE_TAG="${CLI_RELEASE_TAG:-devel}"
 OPENCLAW_VERSION="${OPENCLAW_VERSION:-latest}"
 CODE_SERVER_VERSION="${CODE_SERVER_VERSION:-4.89.1}"
 CODE_SERVER_PORT="${CODE_SERVER_PORT:-13337}"
+OPENCLAW_AUTH_MODE="${OPENCLAW_AUTH_MODE:-}"
 
 TARGET_USER="${SUDO_USER:-$(id -un)}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+if [[ -z "$COMMUNITY_CLONE_ROOT" ]]; then
+  COMMUNITY_CLONE_ROOT="$TARGET_HOME"
+fi
+if [[ -z "$PLUGIN_CLONE_ROOT" ]]; then
+  PLUGIN_CLONE_ROOT="$TARGET_HOME"
+fi
+if [[ -z "${COMMUNITY_DIR:-}" ]]; then
+  COMMUNITY_DIR="$COMMUNITY_CLONE_ROOT/OpenShell-Community"
+fi
+if [[ -z "${PLUGIN_DIR:-}" ]]; then
+  PLUGIN_DIR="$PLUGIN_CLONE_ROOT/openshell-openclaw-plugin"
+fi
 NODE_BIN="${NODE_BIN:-}"
 NPM_BIN="${NPM_BIN:-}"
 mkdir -p "$(dirname "$LAUNCH_LOG")"
@@ -223,14 +236,14 @@ derive_chat_ui_url() {
   fi
 
   if [[ -n "${BREV_ENV_ID:-}" ]]; then
-    printf 'https://openclaw-%s.brevlab.com\n' "$BREV_ENV_ID"
+    printf 'https://openclaw0-%s.brevlab.com/chat?session=main\n' "$BREV_ENV_ID"
     return
   fi
 
   host_name="$(hostname 2>/dev/null || true)"
   env_id="$(printf '%s\n' "$host_name" | sed -E 's/^brev-([[:alnum:]]+)$/\1/')"
   if [[ -n "$env_id" && "$env_id" != "$host_name" ]]; then
-    printf 'https://openclaw-%s.brevlab.com\n' "$env_id"
+    printf 'https://openclaw0-%s.brevlab.com/chat?session=main\n' "$env_id"
     return
   fi
 
@@ -511,7 +524,7 @@ install_code_server() {
 configure_code_server() {
   local config_dir settings_dir settings_user_dir workspaces_dir workspace_path home_workspace_path
   local terminals_target
-  local chat_ui_url install_cmd
+  local chat_ui_url install_cmd install_log auth_export
 
   config_dir="$TARGET_HOME/.config/code-server"
   settings_dir="$TARGET_HOME/.local/share/code-server"
@@ -521,7 +534,12 @@ configure_code_server() {
   home_workspace_path="$TARGET_HOME/nemoclaw-plugin.code-workspace"
   terminals_target="$TARGET_HOME/.vscode/terminals.json"
   chat_ui_url="$(derive_chat_ui_url)"
-  install_cmd="cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" && bash ./install.sh"
+  install_log="/tmp/nemoclaw-plugin-install.log"
+  auth_export=""
+  if [[ -n "$OPENCLAW_AUTH_MODE" ]]; then
+    auth_export=" export OPENCLAW_AUTH_MODE=\"${OPENCLAW_AUTH_MODE}\" &&"
+  fi
+  install_cmd="cd ${PLUGIN_DIR} && export CHAT_UI_URL=\"${chat_ui_url}\" &&${auth_export} bash ./install.sh 2>&1 | tee \"${install_log}\"; install_status=\${PIPESTATUS[0]}; if [[ \$install_status -eq 0 ]]; then token=\$(grep -Eo 'token=[A-Za-z0-9_-]+' \"${install_log}\" | tail -n 1 | cut -d= -f2 || true); printf '\\nNeMoClaw install finished.\\n'; printf '  CHAT_UI_URL: %s\\n' \"${chat_ui_url}\"; if [[ -n \"$OPENCLAW_AUTH_MODE\" ]]; then printf '  OpenClaw auth mode request: %s\\n' \"$OPENCLAW_AUTH_MODE\"; fi; if [[ -n \"\$token\" ]]; then printf '  OpenClaw token: %s\\n' \"\$token\"; printf '  OpenClaw URL: %s#token=%s\\n' \"${chat_ui_url}\" \"\$token\"; else printf '  OpenClaw token: not found in install output\\n'; fi; printf '  PATH refresh: starting a new login shell so nemoclaw is available.\\n\\n'; fi; source ~/.profile >/dev/null 2>&1 || true; source ~/.bashrc >/dev/null 2>&1 || true; exec bash -l"
 
   sudo -u "$TARGET_USER" mkdir -p "$config_dir" "$settings_user_dir" "$workspaces_dir" "$TARGET_HOME/.vscode"
 

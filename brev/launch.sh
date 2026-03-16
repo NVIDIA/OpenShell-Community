@@ -22,7 +22,7 @@
   GITHUB_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${GITHUB_PAT:-}}}"
   COMMUNITY_REPO="${COMMUNITY_REPO:-NVIDIA/OpenShell-Community}"
   COMMUNITY_REF="${COMMUNITY_REF:-${COMMUNITY_BRANCH:-}}"
-  CLONE_ROOT="${CLONE_ROOT:-/home/ubuntu}"
+  CLONE_ROOT="${CLONE_ROOT:-${HOME:-/home/ubuntu}}"
   CLONE_DIR="${CLONE_DIR:-$CLONE_ROOT/OpenShell-Community}"
   GATEWAY_LOG="${GATEWAY_LOG:-/tmp/openshell-gateway.log}"
   WELCOME_UI_LOG="${WELCOME_UI_LOG:-/tmp/welcome-ui.log}"
