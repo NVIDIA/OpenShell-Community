@@ -41,8 +41,7 @@ network_policies:
       - { host: www.ollama.com, port: 443 }
       - { host: registry.ollama.com, port: 443 }
       - { host: registry.ollama.ai, port: 443 }
-      # TODO: Use wildcard *.r2.cloudflarestorage.com once OpenShell supports it
-      - { host: dd20bb891979d25aebc8bec07b2b3bbc.r2.cloudflarestorage.com, port: 443 }
+      - { host: "*.r2.cloudflarestorage.com", port: 443 }
       - { host: github.com, port: 443 }
       - { host: objects.githubusercontent.com, port: 443 }
       - { host: raw.githubusercontent.com, port: 443 }
