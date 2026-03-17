@@ -45,7 +45,7 @@ if [[ -z "$COMMUNITY_DIR" ]]; then
   COMMUNITY_DIR="$COMMUNITY_CLONE_ROOT/OpenShell-Community"
 fi
 if [[ -z "$PLUGIN_DIR" ]]; then
-  PLUGIN_DIR="$PLUGIN_CLONE_ROOT/openshell-openclaw-plugin"
+  PLUGIN_DIR="$PLUGIN_CLONE_ROOT/NemoClaw"
 fi
 NODE_BIN="${NODE_BIN:-}"
 NPM_BIN="${NPM_BIN:-}"

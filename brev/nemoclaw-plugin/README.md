@@ -10,7 +10,7 @@ When this Brev Launchable completes host setup, it opens `code-server` and
 starts an interactive terminal that runs:
 
 ```bash
-cd /home/ubuntu/openshell-openclaw-plugin
+cd ${HOME}/NemoClaw
 bash ./install.sh
 ```
 
@@ -19,16 +19,16 @@ bash ./install.sh
 If you want to run the plugin installer yourself:
 
 ```bash
-cd /home/ubuntu/openshell-openclaw-plugin
+cd ${HOME}/NemoClaw
 bash ./install.sh
 ```
 
 Public GitHub checkout:
 
 ```bash
-cd /home/ubuntu
-git clone https://github.com/NVIDIA/openshell-openclaw-plugin.git
-cd /home/ubuntu/openshell-openclaw-plugin
+cd ${HOME}
+git clone https://github.com/NVIDIA/NemoClaw.git
+cd ${HOME}/NemoClaw
 bash ./install.sh
 ```
 
