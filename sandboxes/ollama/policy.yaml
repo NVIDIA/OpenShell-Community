@@ -1,0 +1,133 @@
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+#
+# Each named policy maps a set of allowed (binary, endpoint) pairs.
+# Binary identity is resolved via /proc/net/tcp inode lookup + /proc/{pid}/exe.
+# Ancestors (/proc/{pid}/status PPid walk) and cmdline paths are also matched.
+# SHA256 integrity is enforced in Rust via trust-on-first-use, not here.
+
+network_policies:
+  ollama:
+    name: ollama
+    endpoints:
+      - { host: ollama.com, port: 443 }
+      - { host: www.ollama.com, port: 443 }
+      - { host: registry.ollama.com, port: 443 }
+      - { host: registry.ollama.ai, port: 443 }
+      - { host: "*.r2.cloudflarestorage.com", port: 443 }
+      - { host: github.com, port: 443 }
+      - { host: objects.githubusercontent.com, port: 443 }
+      - { host: raw.githubusercontent.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/curl }
+      - { path: /bin/bash }
+      - { path: /usr/bin/sh }
+      - { path: /usr/local/bin/ollama }
+      - { path: /usr/bin/ollama }
+
+  claude_code:
+    name: claude_code
+    endpoints:
+      - { host: api.anthropic.com, port: 443, protocol: rest, enforcement: enforce, access: full, tls: terminate }
+      - { host: statsig.anthropic.com, port: 443 }
+      - { host: sentry.io, port: 443 }
+      - { host: raw.githubusercontent.com, port: 443 }
+      - { host: platform.claude.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/claude }
+      - { path: /usr/bin/node }
+
+  npm:
+    name: npm
+    endpoints:
+      - { host: registry.npmjs.org, port: 443 }
+      - { host: npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/npm }
+      - { path: /usr/bin/node }
+      - { path: /bin/bash }
+      - { path: /usr/bin/curl }
+
+  github:
+    name: github
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          # Git Smart HTTP read-only: allow clone, fetch, pull
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          # Data transfer for reads
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+    binaries:
+      - { path: /usr/bin/git }
+
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**/"
+          - allow:
+              method: HEAD
+              path: "/**/"
+          - allow:
+              method: OPTIONS
+              path: "/**/"
+    binaries:
+      - { path: /usr/bin/gh }
+
+  nvidia:
+    name: nvidia
+    endpoints:
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/curl }
+      - { path: /bin/bash }
+      - { path: /usr/local/bin/opencode }
+  nvidia_web:
+    name: nvidia_web
+    endpoints:
+      - { host: nvidia.com, port: 443 }
+      - { host: www.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/curl }

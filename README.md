@@ -23,6 +23,7 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | Sandbox                 | Description                                                  |
 | ----------------------- | ------------------------------------------------------------ |
 | `sandboxes/base/`       | Foundational image with system tools, users, and dev environment |
+| `sandboxes/ollama/`     | Ollama for local and cloud LLMs with Claude Code, Codex, OpenCode pre-installed |
 | `sandboxes/sdg/`        | Synthetic data generation workflows                          |
 | `sandboxes/openclaw/`   | OpenClaw -- open agent manipulation and control              |
 
@@ -51,7 +52,21 @@ After the Brev instance is ready, access the Welcome UI to inject provider keys 
 openshell sandbox create --from openclaw
 ```
 
-The `--from` flag accepts any sandbox defined under `sandboxes/` (e.g., `openclaw`, `sdg`), a local path, or a container image reference.
+The `--from` flag accepts any sandbox defined under `sandboxes/` (e.g., `openclaw`, `ollama`, `sdg`), a local path, or a container image reference.
+
+### Ollama Sandbox
+
+The Ollama sandbox provides Ollama for running local LLMs and routing to cloud models, with Claude Code and Codex pre-installed.
+
+**Quick start:**
+
+```bash
+openshell sandbox create --from ollama 
+
+curl http://127.0.0.1:11434/api/tags
+```
+
+See the [Ollama sandbox README](sandboxes/ollama/README.md) for full details.
 
 ## Contributing
 
