@@ -74,7 +74,8 @@ RUN npm install -g \
         tar@7.5.11 \
         @hono/node-server@1.19.11 \
         opencode-ai@1.2.18 \
-        @openai/codex@0.111.0
+        @openai/codex@0.111.0 \
+        @shareai-lab/kode@2.2.0
 
 # GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \

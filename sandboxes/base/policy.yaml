@@ -93,6 +93,7 @@ network_policies:
         access: read-only
     binaries:
       - { path: /usr/local/bin/claude }
+      - { path: /usr/local/bin/kode }
       - { path: /usr/bin/gh }
 
   pypi:
@@ -159,3 +160,12 @@ network_policies:
     - path: /usr/lib/node_modules/opencode-ai/bin/.opencode
     - path: /usr/bin/node
     - path: /usr/local/bin/opencode
+
+  kode_agent:
+    name: kode-agent
+    endpoints:
+      - { host: api.anthropic.com, port: 443, protocol: rest, enforcement: enforce, access: full, tls: terminate }
+      - { host: api.openai.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/kode }
+      - { path: /usr/bin/node }
