@@ -6,8 +6,6 @@ OpenShell sandbox image pre-configured with [pi](https://github.com/badlogic/pi-
 
 - **Pi coding agent** — Terminal-based coding agent with read, write, edit, and bash tools
 - **Node.js 22** — Runtime required by pi
-- **pi-agent-start** — Helper script that detects API keys and launches pi
-
 ## Build
 
 ```bash
@@ -31,7 +29,7 @@ openshell sandbox create --from pi-agent
 ### With an API key
 
 ```bash
-openshell sandbox create --from pi-agent -- env ANTHROPIC_API_KEY=sk-ant-... pi-agent-start
+openshell sandbox create --from pi-agent -- env ANTHROPIC_API_KEY=sk-ant-... pi
 ```
 
 ### Interactive startup

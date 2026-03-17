@@ -17,10 +17,6 @@ RUN npm install -g @mariozechner/pi-coding-agent
 # Copy sandbox policy
 COPY policy.yaml /etc/openshell/policy.yaml
 
-# Copy the pi-agent startup helper
-COPY pi-agent-start.sh /usr/local/bin/pi-agent-start
-RUN chmod +x /usr/local/bin/pi-agent-start
-
 # Create pi config and session directories
 RUN mkdir -p /sandbox/.pi/agent && \
     chown -R sandbox:sandbox /sandbox/.pi
