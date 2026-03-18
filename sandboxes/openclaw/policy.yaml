@@ -85,6 +85,7 @@ network_policies:
       - { path: /usr/bin/curl }
       - { path: /bin/bash }
       - { path: /usr/local/bin/opencode }
+      - { path: /usr/bin/node }
   nvidia_web:
     name: nvidia_web
     endpoints:
