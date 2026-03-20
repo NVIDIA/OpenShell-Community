@@ -159,3 +159,16 @@ network_policies:
     - path: /usr/lib/node_modules/opencode-ai/bin/.opencode
     - path: /usr/bin/node
     - path: /usr/local/bin/opencode
+
+  copilot:
+    name: copilot
+    endpoints:
+    - { host: github.com, port: 443 }
+    - { host: api.github.com, port: 443 }
+    - { host: api.githubcopilot.com, port: 443 }
+    - { host: api.enterprise.githubcopilot.com, port: 443 }
+    - { host: release-assets.githubusercontent.com, port: 443 }
+    - { host: copilot-proxy.githubusercontent.com, port: 443 }
+    - { host: default.exp-tas.com, port: 443 }
+    binaries:
+    - { path: /usr/lib/node_modules/@github/copilot/node_modules/@github/**/copilot }
