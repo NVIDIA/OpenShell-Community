@@ -9,6 +9,12 @@ set -euo pipefail
 # Export OLLAMA_HOST for OpenShell provider discovery
 export OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 
+# Update Ollama if requested
+if [ "${OLLAMA_UPDATE:-0}" = "1" ]; then
+    echo "[ollama] Updating to latest version..."
+    update-ollama
+fi
+
 # Start Ollama server in background
 echo "[ollama] Starting Ollama server..."
 nohup ollama serve > /tmp/ollama.log 2>&1 &

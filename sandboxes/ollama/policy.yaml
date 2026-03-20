@@ -45,10 +45,12 @@ network_policies:
       - { host: github.com, port: 443 }
       - { host: objects.githubusercontent.com, port: 443 }
       - { host: raw.githubusercontent.com, port: 443 }
+      - { host: release-assets.githubusercontent.com, port: 443 }
     binaries:
       - { path: /usr/bin/curl }
       - { path: /bin/bash }
       - { path: /usr/bin/sh }
+      - { path: /sandbox/bin/ollama }
       - { path: /usr/local/bin/ollama }
       - { path: /usr/bin/ollama }
 
