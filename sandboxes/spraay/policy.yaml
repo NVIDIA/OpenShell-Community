@@ -1,0 +1,92 @@
+# Spraay Sandbox Network Policy
+# This policy allows egress only to the Spraay gateway and required
+# blockchain RPC providers. All other egress is denied by default.
+#
+# Apply with: openshell policy set <sandbox-name> --policy policy.yaml --wait
+
+version: "1"
+
+# ── Spraay Gateway ───────────────────────────────────────────────────────────
+spraay_gateway:
+  destination: "gateway.spraay.app"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Spraay x402 payment gateway — all API requests route here"
+
+spraay_docs:
+  destination: "docs.spraay.app"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Spraay API documentation"
+
+# ── Blockchain RPC Providers ─────────────────────────────────────────────────
+infura_rpc:
+  destination: "*.infura.io"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Infura — Ethereum, Polygon, Arbitrum, Optimism RPC"
+
+alchemy_rpc:
+  destination: "*.alchemy.com"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Alchemy — multi-chain RPC provider"
+
+base_rpc:
+  destination: "*.base.org"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Base chain public RPC"
+
+quicknode_rpc:
+  destination: "*.quiknode.pro"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "QuickNode — multi-chain RPC provider"
+
+# ── Coinbase (x402 payment verification) ─────────────────────────────────────
+coinbase_cdp:
+  destination: "*.coinbase.com"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Coinbase CDP — x402 payment facilitation and verification"
+
+# ── Solana RPC ───────────────────────────────────────────────────────────────
+solana_rpc:
+  destination: "*.solana.com"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Solana mainnet RPC"
+
+helius_rpc:
+  destination: "*.helius-rpc.com"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Helius — Solana RPC provider"
+
+# ── Bitcoin / Stacks ─────────────────────────────────────────────────────────
+blockstream_api:
+  destination: "blockstream.info"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Blockstream — Bitcoin block explorer API"
+
+stacks_api:
+  destination: "*.stacks.co"
+  port: 443
+  protocol: tcp
+  action: allow
+  note: "Stacks blockchain API"
+
+# ── Deny everything else ─────────────────────────────────────────────────────
+# OpenShell default policy denies all egress not explicitly allowed above.
