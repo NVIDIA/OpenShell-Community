@@ -26,3 +26,15 @@ docker build -t openshell-ollama .
 openshell sandbox create --from ollama
 ```
 
+### Update Ollama inside the sandbox
+
+```bash
+update-ollama
+```
+
+Or auto-update on startup:
+
+```bash
+openshell sandbox create --from ollama -e OLLAMA_UPDATE=1
+```
+
