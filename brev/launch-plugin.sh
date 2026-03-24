@@ -561,6 +561,50 @@ clone_plugin_repo() {
   return 0
 }
 
+patch_plugin_chat_ui_url() {
+  local chat_ui_url dockerfile_path
+
+  dockerfile_path="$PLUGIN_DIR/Dockerfile"
+  if [[ ! -f "$dockerfile_path" ]]; then
+    log "Plugin Dockerfile not found; skipping CHAT_UI_URL patch: $dockerfile_path"
+    return 0
+  fi
+
+  chat_ui_url="$(derive_chat_ui_url)"
+  if [[ -z "$chat_ui_url" ]]; then
+    log "Derived CHAT_UI_URL is empty; skipping plugin Dockerfile patch."
+    return 0
+  fi
+
+  if ! python3 - "$dockerfile_path" "$chat_ui_url" <<'PY'
+import pathlib
+import re
+import sys
+
+dockerfile = pathlib.Path(sys.argv[1])
+chat_ui_url = sys.argv[2]
+content = dockerfile.read_text(encoding="utf-8")
+updated, count = re.subn(
+    r"^ARG CHAT_UI_URL=.*$",
+    f"ARG CHAT_UI_URL={chat_ui_url}",
+    content,
+    count=1,
+    flags=re.MULTILINE,
+)
+if count == 0:
+    raise SystemExit(1)
+if updated != content:
+    dockerfile.write_text(updated, encoding="utf-8")
+PY
+  then
+    log "Failed to patch plugin Dockerfile CHAT_UI_URL in $dockerfile_path"
+    return 1
+  fi
+
+  log "Patched plugin Dockerfile CHAT_UI_URL to ${chat_ui_url}"
+  return 0
+}
+
 run_plugin_install_script() {
   if [[ ! -f "$PLUGIN_DIR/install.sh" ]]; then
     log "Plugin install script not found: $PLUGIN_DIR/install.sh"
@@ -731,6 +775,8 @@ main() {
   step "Cloning plugin repo"
   if ! clone_plugin_repo; then
     log "Plugin repository is unavailable. Continuing in manual-command mode."
+  elif ! patch_plugin_chat_ui_url; then
+    log "Unable to patch plugin Dockerfile CHAT_UI_URL. Continuing with the repo default."
   fi
 
   step "Preparing plugin installer"
