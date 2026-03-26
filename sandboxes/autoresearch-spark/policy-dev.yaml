@@ -1,0 +1,135 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Development policy for autoresearch-spark sandbox.
+#
+# Extends the runtime policy with PyPI and PyTorch wheel access so you can
+# install or update Python packages at runtime (e.g. `uv pip install ...`).
+#
+# Use this when iterating on dependencies or testing new packages.
+# For production runs, use the default policy.yaml which locks down to
+# runtime-only network access.
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+
+network_policies:
+  claude_code:
+    name: claude-code
+    endpoints:
+      - { host: api.anthropic.com, port: 443, protocol: rest, enforcement: enforce, access: full, tls: terminate }
+      - { host: statsig.anthropic.com, port: 443 }
+      - { host: sentry.io, port: 443 }
+      - { host: raw.githubusercontent.com, port: 443 }
+      - { host: platform.claude.com, port: 443 }
+      - { host: storage.googleapis.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/claude }
+      - { path: /usr/bin/node }
+
+  github_ssh_over_https:
+    name: github-ssh-over-https
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+    binaries:
+      - { path: /usr/bin/git }
+
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - { path: /usr/local/bin/claude }
+      - { path: /usr/bin/gh }
+
+  nvidia_inference:
+    name: nvidia-inference
+    endpoints:
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/curl }
+      - { path: /bin/bash }
+      - { path: /usr/local/bin/opencode }
+
+  huggingface:
+    name: huggingface
+    endpoints:
+      - { host: huggingface.co, port: 443 }
+      - { host: cas-bridge.xethub.hf.co, port: 443 }
+      - { host: cas-server.xethub.hf.co, port: 443 }
+      - { host: transfer.xethub.hf.co, port: 443 }
+    binaries:
+      - { path: "/sandbox/.uv/python/**" }
+      - { path: /sandbox/.venv/bin/python }
+      - { path: /sandbox/.venv/bin/python3 }
+
+  # --- Dev-only: package installation at runtime ---
+  pypi:
+    name: pypi
+    endpoints:
+      - { host: pypi.org, port: 443 }
+      - { host: files.pythonhosted.org, port: 443 }
+      - { host: download.pytorch.org, port: 443 }
+      - { host: github.com, port: 443 }
+      - { host: objects.githubusercontent.com, port: 443 }
+      - { host: api.github.com, port: 443 }
+      - { host: downloads.python.org, port: 443 }
+      - { host: releases.astral.sh, port: 443 }
+    binaries:
+      - { path: /sandbox/.venv/bin/python }
+      - { path: /sandbox/.venv/bin/python3 }
+      - { path: /sandbox/.venv/bin/pip }
+      - { path: /usr/local/bin/uv }
+      - { path: "/sandbox/.uv/python/**" }
+
+  opencode:
+    name: opencode
+    endpoints:
+      - { host: registry.npmjs.org, port: 443 }
+      - { host: opencode.ai, port: 443 }
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/lib/node_modules/opencode-ai/bin/.opencode }
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/opencode }
