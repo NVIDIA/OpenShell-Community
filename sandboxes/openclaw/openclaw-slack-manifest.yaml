@@ -1,0 +1,99 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Slack App Manifest for OpenClaw
+#
+# This manifest configures all scopes, events, and settings required
+# for OpenClaw's Slack integration with Socket Mode.
+#
+# Usage:
+#   1. Go to https://api.slack.com/apps
+#   2. Click "Create New App" > "From an app manifest"
+#   3. Select your workspace
+#   4. Paste this YAML and confirm
+#   5. After creation, generate an App-Level Token with connections:write scope
+#   6. Install to workspace and copy the Bot User OAuth Token
+#
+# To update an existing app:
+#   1. Go to https://api.slack.com/apps > select your app
+#   2. Click "App Manifest" in the left sidebar
+#   3. Paste this YAML and save
+
+_metadata:
+  major_version: 1
+  minor_version: 1
+
+display_information:
+  name: OpenClaw Agent
+  description: Autonomous AI agent powered by OpenClaw, running inside an OpenShell sandbox.
+  background_color: "#1a1a2e"
+
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: openclaw-agent
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      # Core messaging
+      - chat:write
+      - chat:write.customize
+      - im:history
+      - im:read
+      - im:write
+
+      # Channel access
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+
+      # Group DMs
+      - mpim:history
+      - mpim:read
+      - mpim:write
+
+      # Mentions & reactions
+      - app_mentions:read
+      - reactions:read
+      - reactions:write
+
+      # Files
+      - files:read
+      - files:write
+
+      # Pins
+      - pins:read
+      - pins:write
+
+      # Other
+      - assistant:write
+      - commands
+      - emoji:read
+      - users:read
+
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+      - reaction_added
+      - reaction_removed
+      - member_joined_channel
+      - member_left_channel
+      - channel_rename
+      - pin_added
+      - pin_removed
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
