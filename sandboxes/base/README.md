@@ -56,3 +56,13 @@ FROM ${BASE_IMAGE}
 ```
 
 See `sandboxes/openclaw/` for an example.
+
+## Codex authentication
+
+For remote or headless OpenShell environments, if browser login hangs, try authenticating Codex with:
+
+```bash
+codex login --device-auth
+```
+
+If device-code login is unreliable in your environment, you can authenticate on another machine and copy ~/.codex/auth.json into the sandbox.

@@ -172,3 +172,14 @@ network_policies:
     - { host: default.exp-tas.com, port: 443 }
     binaries:
     - { path: /usr/lib/node_modules/@github/copilot/node_modules/@github/**/copilot }
+
+  codex:
+    name: codex
+    endpoints:
+      - { host: api.openai.com,  port: 443 }
+      - { host: auth.openai.com, port: 443 }
+      - { host: chatgpt.com,     port: 443 }
+    binaries:
+      - { path: /usr/bin/codex }
+      - { path: /usr/bin/node }
+      - { path: "/usr/lib/node_modules/@openai/**" }

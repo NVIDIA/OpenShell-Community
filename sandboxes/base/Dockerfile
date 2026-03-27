@@ -74,7 +74,7 @@ RUN npm install -g \
         tar@7.5.11 \
         @hono/node-server@1.19.11 \
         opencode-ai@1.2.18 \
-        @openai/codex@0.111.0 \
+        @openai/codex@0.117.0 \
         @github/copilot@1.0.9
 
 # GitHub CLI
