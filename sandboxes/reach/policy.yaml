@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 agent-0x
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# Reach sandbox — AI-native remote server management
+#
+# Reach replaces SSH with HTTPS+Token for AI agents. This policy allows
+# the reach binary to connect to remote reach-agent instances over TLS,
+# and permits downloading releases from GitHub for bootstrap/updates.
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+network_policies:
+  # Reach agent connections — HTTPS to remote servers on the default agent port.
+  # In production, list your actual server IPs/hostnames explicitly.
+  # The wildcard entry below is a starting template; narrow it to your fleet.
+  reach_agent:
+    name: reach-agent
+    endpoints:
+      # Example: allow reach to connect to any host on the agent port (TLS).
+      # Replace with your actual server addresses for production use:
+      #   - { host: 152.53.34.214, port: 7100, protocol: rest, tls: passthrough }
+      #   - { host: 152.53.45.129, port: 7100, protocol: rest, tls: passthrough }
+      - host: "*"
+        port: 7100
+        protocol: rest
+        tls: passthrough
+        enforcement: enforce
+    binaries:
+      - { path: /usr/local/bin/reach }
+
+  # GitHub API — for `reach bootstrap` (fetch latest release) and install script
+  reach_github:
+    name: reach-github
+    endpoints:
+      - { host: api.github.com, port: 443 }
+      - { host: github.com, port: 443 }
+      - { host: objects.githubusercontent.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/reach }
+      - { path: /usr/bin/curl }
+
+  # Claude Code — if using reach as an MCP server within Claude Code
+  claude_code:
+    name: claude-code
+    endpoints:
+      - { host: api.anthropic.com, port: 443, protocol: rest, enforcement: enforce, access: full, tls: terminate }
+      - { host: statsig.anthropic.com, port: 443 }
+      - { host: sentry.io, port: 443 }
+      - { host: raw.githubusercontent.com, port: 443 }
+      - { host: platform.claude.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/claude }
+      - { path: /usr/bin/node }
