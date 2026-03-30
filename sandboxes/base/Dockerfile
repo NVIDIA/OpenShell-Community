@@ -58,7 +58,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y --no-install-recommends \
         build-essential \
         git \
-        nodejs=22.22.1-1nodesource1 \
+        nodejs \
         vim-tiny \
         nano \
     && rm -rf /var/lib/apt/lists/* \
