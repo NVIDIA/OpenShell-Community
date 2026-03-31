@@ -69,6 +69,7 @@ RUN echo 'export OLLAMA_HOST=http://127.0.0.1:11434' >> /sandbox/.bashrc && \
     echo 'export NPM_CONFIG_PREFIX=/sandbox/.npm-global' >> /sandbox/.bashrc && \
     echo 'export PATH="/sandbox/bin:/sandbox/.npm-global/bin:$PATH"' >> /sandbox/.bashrc && \
     echo 'export PATH="/opt/conda/bin:$PATH"' >> /sandbox/.bashrc && \
+    echo 'export GIT_SSL_CAINFO=/etc/openshell-tls/ca-bundle.pem' >> /sandbox/.bashrc && \
     chown sandbox:sandbox /sandbox/.bashrc
 
 ENV GIT_SSL_CAINFO=/etc/openshell-tls/ca-bundle.pem 
