@@ -148,6 +148,9 @@ network_policies:
           - allow:
               method: POST
               path: "/**/git-upload-pack"
+          - allow:
+              method: POST
+              path: "/**/git-receive-pack"
     binaries:
       - { path: /usr/bin/git }
 
