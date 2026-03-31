@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+#
+# Each named policy maps a set of allowed (binary, endpoint) pairs.
+# Binary identity is resolved via /proc/net/tcp inode lookup + /proc/{pid}/exe.
+# Ancestors (/proc/{pid}/status PPid walk) and cmdline paths are also matched.
+# SHA256 integrity is enforced in Rust via trust-on-first-use, not here.
+
+network_policies:
+
+  # --- Factory Droid core infrastructure ---
+  droid:
+    name: droid
+    endpoints:
+      # Main API / LLM proxy
+      - { host: api.factory.ai, port: 443 }
+      # Auth, OAuth callbacks, CLI updates
+      - { host: app.factory.ai, port: 443 }
+      # Droid Computers relay (HTTPS + WSS)
+      - { host: relay.factory.ai, port: 443 }
+      # Error tracking
+      - { host: "*.ingest.us.sentry.io", port: 443 }
+      - { host: "*.ingest.sentry.io", port: 443 }
+    binaries:
+      - { path: "/usr/lib/node_modules/droid/**" }
+      - { path: /usr/local/bin/droid }
+      - { path: /usr/bin/node }
+
+  # --- BYOK: direct model provider access ---
+  droid_byok:
+    name: droid-byok
+    endpoints:
+      - { host: api.anthropic.com, port: 443 }
+      - { host: api.openai.com, port: 443 }
+      - { host: generativelanguage.googleapis.com, port: 443 }
+      - { host: "*.googleapis.com", port: 443 }
+      - { host: api.groq.com, port: 443 }
+      - { host: api.fireworks.ai, port: 443 }
+      - { host: api.deepinfra.com, port: 443 }
+      - { host: openrouter.ai, port: 443 }
+      - { host: api-inference.huggingface.co, port: 443 }
+    binaries:
+      - { path: "/usr/lib/node_modules/droid/**" }
+      - { path: /usr/local/bin/droid }
+      - { path: /usr/bin/node }
+
+  # --- GitHub (full read + write access) ---
+  github:
+    name: github
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+          - allow:
+              method: POST
+              path: "/**/git-receive-pack"
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+    binaries:
+      - { path: /usr/bin/git }
+      - { path: /usr/bin/gh }
+      - { path: "/usr/lib/node_modules/droid/**" }
+      - { path: /usr/bin/node }
+
+  # --- npm registry (MCP server installs) ---
+  npm:
+    name: npm
+    endpoints:
+      - { host: registry.npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/npm }
+
+  # --- PyPI (Python package installs) ---
+  pypi:
+    name: pypi
+    endpoints:
+      - { host: pypi.org, port: 443 }
+      - { host: files.pythonhosted.org, port: 443 }
+      - { host: github.com, port: 443 }
+      - { host: objects.githubusercontent.com, port: 443 }
+      - { host: api.github.com, port: 443 }
+      - { host: downloads.python.org, port: 443 }
+    binaries:
+      - { path: /sandbox/.venv/bin/python }
+      - { path: /sandbox/.venv/bin/python3 }
+      - { path: /sandbox/.venv/bin/pip }
+      - { path: /app/.venv/bin/python }
+      - { path: /app/.venv/bin/python3 }
+      - { path: /app/.venv/bin/pip }
+      - { path: /usr/local/bin/uv }
+      - { path: "/sandbox/.uv/python/**" }
