@@ -21,6 +21,13 @@ RUN apt-get update && apt-get install -y wget && \
     rm /tmp/miniconda.sh && \
     /opt/conda/bin/conda clean -afy
 
+# Accept Anaconda ToS and install default conda packages
+RUN /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main \
+    && /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r \
+    && /opt/conda/bin/conda install -y -c conda-forge \
+    vim htop nvtop ncurses numpy matplotlib \
+    && /opt/conda/bin/conda clean -afy
+
 # Make conda accessible to the sandbox user
 RUN chown -R sandbox:sandbox /opt/conda
 
