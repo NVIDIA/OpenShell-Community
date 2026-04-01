@@ -44,8 +44,16 @@ network_policies:
       - { host: api.factory.ai, port: 443 }
       # Auth, OAuth callbacks, CLI updates
       - { host: app.factory.ai, port: 443 }
+      # WorkOS authentication (device code / OAuth login flow)
+      - { host: api.workos.com, port: 443 }
       # Droid Computers relay (HTTPS + WSS)
       - { host: relay.factory.ai, port: 443 }
+      # CLI auto-update CDN
+      - { host: downloads.factory.ai, port: 443 }
+      # Documentation / changelog
+      - { host: docs.factory.ai, port: 443 }
+      # Customer OTEL telemetry
+      - { host: "*.run.app", port: 443 }
       # Error tracking
       - { host: "*.ingest.us.sentry.io", port: 443 }
       - { host: "*.ingest.sentry.io", port: 443 }
