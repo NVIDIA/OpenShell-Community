@@ -5,7 +5,7 @@
 
 An OpenShell Community sandbox that runs the full [Cursor](https://cursor.com) Linux desktop
 IDE inside an isolated sandbox and delivers the UI through a browser using
-**Xvfb + openbox + x11vnc + noVNC**.
+**Xvfb + openbox + x11vnc + websockify (noVNC)**.
 
 Cursor is treated as an agent-capable desktop application kept inside OpenShell policy
 boundaries, with file access, network egress, and credentials controlled through the
@@ -14,21 +14,24 @@ standard OpenShell policy and provider model.
 ## Architecture
 
 ```
-Browser (http://localhost:6080)
-  └─ OpenShell port-forward tunnel
-       └─ noVNC / websockify  (port 6080)
-            └─ x11vnc          (port 5901, localhost-only)
-                 └─ Xvfb :1 + openbox session
+Browser (http://localhost:6080/index.html)
+  └─ OpenShell port-forward tunnel (or Docker -p 6080)
+       └─ websockify --web /usr/share/novnc  (port 6080: HTTP + ws /websockify)
+            └─ x11vnc  (port 5901, localhost-only)
+                 └─ Xvfb :1 + openbox (Cursor fullscreen; Chrome/Firefox above for OAuth)
                       └─ Cursor Linux .deb
                            └─ /sandbox/workspace
 ```
+
+The Openbox session is configured so the VNC view is effectively **Cursor only** (fullscreen, no window-manager decorations). Browser windows opened for sign-in are forced to the **above** layer and focused.
 
 ## Prerequisites
 
 - [OpenShell CLI](https://github.com/NVIDIA/openshell) ≥ v0.0.16
 - A running gateway (`openshell gateway start`)
 - Docker (for the initial image build)
-- **x86-64 (amd64) host** — Cursor only ships x64 Linux packages; arm64 hosts are not supported (see [Known limitations](#known-limitations))
+- For the full Cursor app experience: **x86-64 (amd64) host**.  
+  On arm64 hosts, the display stack is still available but Cursor is skipped (see [Known limitations](#known-limitations)).
 
 ## Quick start
 
@@ -38,7 +41,7 @@ openshell sandbox create \
     --from ./sandboxes/cursor-desktop \
     --forward 6080
 
-# Then open http://localhost:6080 in your browser.
+# Then open http://localhost:6080/index.html in your browser.
 ```
 
 Or run the example script:
@@ -53,12 +56,29 @@ A helper script builds and runs the sandbox with Docker directly, without requir
 a running OpenShell gateway. Useful for iterating on the image locally.
 
 ```bash
-# From the root of the repo:
+# From the root of the repo (Linux, macOS, or WSL):
 bash sandboxes/cursor-desktop/scripts/local-test.sh
 ```
 
+**Windows + Docker Desktop (WSL backend):** run the command above from **inside your WSL distro** (not PowerShell or Git Bash unless `docker` works there). In Docker Desktop, enable **Settings → Resources → WSL integration** for that distro, then use a new WSL terminal so `docker` is on `PATH`. Repository shell scripts under `sandboxes/cursor-desktop/` are kept with **LF** line endings (see repo-root `.gitattributes`); CRLF breaks bash shebangs and `set` on Linux.
+
 On Apple Silicon Macs, Docker Desktop uses Rosetta 2 to emulate x86_64 transparently —
 the `--platform linux/amd64` flag is set automatically by the script.
+
+### Browser shows only black / no Cursor
+
+You can reach noVNC (e.g. `/app/` assets load) but the remote screen stays black when **X11 is up but Cursor never paints** (crash, wrong GPU flags, or VNC damage updates). Try in order:
+
+1. Confirm the image is **linux/amd64** (ARM builds skip installing Cursor — you get an empty desktop and a black or idle root window).
+2. Run the container with enough shared memory: **`--shm-size 2g`** (already set in `local-test.sh`). Too small `/dev/shm` often breaks Electron.
+3. Inspect Cursor logs inside the container (name may be `cursor-desktop-test` from `local-test.sh`):
+   ```bash
+   docker exec -it cursor-desktop-test tail -n 120 /tmp/cursor.log
+   ```
+4. See whether the process exists: `docker exec -it cursor-desktop-test pgrep -a cursor`
+5. Open **`http://127.0.0.1:6080/index.html`** with plain HTTP so the noVNC client can use **`ws://`** on the same host and port. If `/` returns 404, use `/index.html`.
+
+6. **Docker Desktop on Windows** uses a **WSL2 kernel** inside containers (`/proc/version` contains `microsoft`). Cursor may treat that like WSL and prompt **“continue anyway?”** on stdin; without a TTY it **hangs** and VNC stays black. The openbox autostart sets **`DONT_PROMPT_WSL_INSTALL=1`** (Cursor’s own bypass). If that message still appears in `/tmp/cursor.log`, rebuild the image so the latest `openbox-autostart` is included.
 
 ## Uploading a project
 
@@ -105,7 +125,7 @@ docker build --platform linux/amd64 --build-arg CURSOR_VERSION=<new-version> ...
 | `/tmp/cursor.log` | Cursor stdout / stderr |
 | `/tmp/openbox.log` | Desktop session log |
 | `/tmp/x11vnc.log` | VNC server log |
-| `/tmp/novnc.log` | noVNC web bridge log |
+| `/tmp/novnc.log` | websockify log (HTTP + WebSocket for noVNC) |
 
 ## Policy
 
@@ -129,10 +149,28 @@ To enable git push to GitHub, uncomment and scope the `git-receive-pack` rule in
 
 ## Smoke test
 
-Run from inside a live sandbox to verify all services:
+The smoke test script lives in this repository at `sandboxes/cursor-desktop/scripts/smoke-test.sh`.
+It is not copied into the runtime image by default. Run one of the following:
+
+1) Verify with built-in checks from inside the sandbox:
 
 ```bash
+openshell sandbox exec cursor-desktop -- /usr/local/bin/healthcheck
+openshell sandbox exec cursor-desktop -- pgrep -f 'cursor' -u sandbox
+```
+
+2) Or copy and run the full smoke test script:
+
+```bash
+openshell upload ./sandboxes/cursor-desktop/scripts/smoke-test.sh /sandbox/scripts/smoke-test.sh
+openshell sandbox exec cursor-desktop -- chmod +x /sandbox/scripts/smoke-test.sh
 openshell sandbox exec cursor-desktop -- /sandbox/scripts/smoke-test.sh
+```
+
+3) For local Docker testing, use:
+
+```bash
+bash sandboxes/cursor-desktop/scripts/local-test.sh
 ```
 
 ## Security notes
@@ -146,11 +184,12 @@ openshell sandbox exec cursor-desktop -- /sandbox/scripts/smoke-test.sh
 
 ## Known limitations
 
-- **amd64 only** — Cursor ships x64 Linux packages exclusively. This sandbox requires an
-  x86-64 host. On arm64 hosts (e.g. Apple Silicon Macs), use
-  `bash sandboxes/cursor-desktop/scripts/local-test.sh` for local testing via Docker
-  Desktop's Rosetta 2 emulation; the OpenShell CLI itself will fail to build the image
-  on arm64 because it builds natively without x86_64 emulation.
+- **Cursor app is amd64-only** — Cursor ships x64 Linux packages exclusively.
+  On arm64 hosts, the image still starts the desktop/VNC/noVNC stack for validation,
+  but `/usr/bin/cursor` is not installed. For full Cursor functionality on arm64
+  development machines, use Docker Desktop x86_64 emulation via
+  `bash sandboxes/cursor-desktop/scripts/local-test.sh` (which uses
+  `--platform linux/amd64`).
 - Cursor requires `--no-sandbox` to start inside a container (passed automatically by
   the openbox autostart script). This disables Chromium's internal process sandbox, which
   is acceptable since OpenShell provides the outer isolation.

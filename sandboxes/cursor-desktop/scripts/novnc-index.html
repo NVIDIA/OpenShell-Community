@@ -47,9 +47,9 @@
 
         function connect() {
             clearTimeout(retryTimer);
-            const host = window.location.hostname;
-            const port = window.location.port;
-            const url  = `ws://${host}:${port}/websockify`;
+            // Use correct scheme (wss behind HTTPS) and default ports (omit empty port).
+            const wsScheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url      = `${wsScheme}//${window.location.host}/websockify`;
 
             if (!connected) showStatus('Connecting…');
 

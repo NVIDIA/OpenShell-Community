@@ -4,7 +4,7 @@
 # Cursor Desktop sandbox image for OpenShell Community
 #
 # Runs the Cursor Linux desktop application inside an OpenShell sandbox and
-# delivers the UI through a browser using Xvfb + openbox + x11vnc + noVNC.
+# delivers the UI through a browser using Xvfb + openbox + x11vnc + websockify (noVNC).
 # Cursor is treated as an agent-capable desktop application kept inside
 # OpenShell policy boundaries.
 #
@@ -49,11 +49,13 @@ RUN apt-get update && \
         openbox wmctrl xterm \
         xvfb \
         x11vnc \
-        novnc websockify nginx \
+        novnc websockify \
         x11-utils x11-xserver-utils netcat-openbsd \
         libgtk-3-0 libnss3 libxss1 libasound2t64 libxrandr2 libxdamage1 \
         libgbm1 libxcomposite1 libxfixes3 libx11-xcb1 libxcb-dri3-0 \
+        libgl1-mesa-dri \
         libdrm2 libglib2.0-0 libatk1.0-0 libatk-bridge2.0-0 libxkbcommon0 \
+        libsecret-1-0 \
         fonts-dejavu fonts-noto-color-emoji \
         procps net-tools python3 python3-xdg \
     && rm -rf /var/lib/apt/lists/*
@@ -91,6 +93,7 @@ RUN mkdir -p /sandbox/workspace && chown -R sandbox:sandbox /sandbox
 COPY scripts/install-cursor.sh /tmp/install-cursor.sh
 RUN ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "amd64" ]; then \
+        sed -i 's/\r$//' /tmp/install-cursor.sh && \
         bash /tmp/install-cursor.sh; \
     else \
         echo "INFO: Cursor is amd64-only, skipping on $ARCH (display stack still starts)."; \
@@ -112,9 +115,10 @@ RUN ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "amd64" ]; then \
         BROWSER_BIN=/usr/bin/google-chrome-stable && \
         BROWSER_DESKTOP=google-chrome.desktop && \
-        # Wrap chrome to pass --no-sandbox (no user namespaces inside containers).
+        # Wrap chrome: --no-sandbox (containers), --no-default-browser-check (no nag on OAuth),
+        # --no-first-run (skip import / welcome prompts when opening login links).
         mv /usr/bin/google-chrome-stable /usr/bin/google-chrome-stable.real && \
-        printf '#!/bin/sh\nexec /usr/bin/google-chrome-stable.real --no-sandbox "$@"\n' \
+        printf '#!/bin/sh\nexec /usr/bin/google-chrome-stable.real --no-sandbox --no-default-browser-check --no-first-run "$@"\n' \
             > /usr/bin/google-chrome-stable && \
         chmod +x /usr/bin/google-chrome-stable && \
         ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome; \
@@ -143,19 +147,15 @@ RUN ARCH=$(dpkg --print-architecture) && \
 RUN mkdir -p /sandbox/.config/openbox
 COPY scripts/openbox-rc.xml    /sandbox/.config/openbox/rc.xml
 COPY scripts/openbox-autostart /sandbox/.config/openbox/autostart
-RUN chmod +x /sandbox/.config/openbox/autostart && \
+COPY scripts/openbox-menu.xml  /sandbox/.config/openbox/menu.xml
+RUN sed -i 's/\r$//' /sandbox/.config/openbox/autostart && \
+    chmod +x /sandbox/.config/openbox/autostart && \
     chown -R sandbox:sandbox /sandbox/.config/openbox
 
 # ── noVNC custom index ─────────────────────────────────────────────────────────
 # Replaces the default noVNC UI with a minimal page that connects directly
 # and scales the desktop to fill the browser window.
 COPY scripts/novnc-index.html /usr/share/novnc/index.html
-
-# ── nginx config ───────────────────────────────────────────────────────────────
-# nginx serves /usr/share/novnc/ over HTTP (port 6080) and proxies the
-# /websockify path to an internal websockify instance (port 5902).
-# All writable paths use /tmp so nginx can run as the non-root sandbox user.
-COPY scripts/nginx.conf /etc/nginx/novnc.conf
 
 # ── Policy ─────────────────────────────────────────────────────────────────────
 COPY policy.yaml /etc/openshell/policy.yaml
@@ -177,7 +177,8 @@ RUN printf 'export DISPLAY=:1\nexport PS1="\\u@cursor-desktop:\\w\\$ "\n' \
 # ── Entrypoint and health scripts ──────────────────────────────────────────────
 COPY startup.sh     /usr/local/bin/startup
 COPY healthcheck.sh /usr/local/bin/healthcheck
-RUN chmod 755 /usr/local/bin/startup /usr/local/bin/healthcheck
+RUN sed -i 's/\r$//' /usr/local/bin/startup /usr/local/bin/healthcheck && \
+    chmod 755 /usr/local/bin/startup /usr/local/bin/healthcheck
 
 # ── Health check ───────────────────────────────────────────────────────────────
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \

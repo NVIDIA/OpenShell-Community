@@ -5,14 +5,25 @@
 
 # Local test script for the cursor-desktop sandbox.
 # Builds the Docker image and runs it with port 6080 forwarded to localhost.
-# Run this from the root of the openshell-community repo:
 #
+# Run from the repo root (use bash, not cmd):
 #   bash sandboxes/cursor-desktop/scripts/local-test.sh
 #
-# After ~30 seconds, open http://localhost:6080 in your browser.
-# Ctrl-C to stop and clean up.
+# Windows + Docker Desktop: run inside WSL (same distro that has Docker integration
+# enabled in Docker Desktop → Settings → Resources → WSL integration). Running from
+# Git Bash or cmd without WSL may fail to find docker or hit CRLF/shebang issues if
+# scripts were checked out with Windows line endings.
+#
+# After the stack is up, open http://localhost:6080/index.html (or ${NOVNC_PORT}).
+# Ctrl-C stops the container (--rm removes it).
 
 set -euo pipefail
+
+if ! command -v docker >/dev/null 2>&1; then
+    echo "error: docker not found in PATH." >&2
+    echo "  On WSL + Docker Desktop: enable your distro under Settings → Resources → WSL integration, then open a new shell in that WSL distro and retry." >&2
+    exit 1
+fi
 
 SANDBOX_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGE_NAME="openshell-cursor-desktop-test"
@@ -22,7 +33,8 @@ NOVNC_PORT="${NOVNC_PORT:-6080}"
 
 echo ""
 echo "=== cursor-desktop local test ==="
-echo "  Image:          ${IMAGE_NAME}"
+echo "  Image:          ${IMAGE_NAME}:${CURSOR_VERSION} (also tagged :latest)"
+echo "  Container name: ${CONTAINER_NAME}"
 echo "  Cursor version: ${CURSOR_VERSION}"
 echo "  noVNC port:     ${NOVNC_PORT}"
 echo ""
@@ -54,6 +66,6 @@ docker run \
     --rm \
     --publish "${NOVNC_PORT}:${NOVNC_PORT}" \
     --shm-size 2g \
-    "${IMAGE_NAME}:latest"
+    "${IMAGE_NAME}:${CURSOR_VERSION}"
 
 # ── The above is blocking (--rm). Ctrl-C triggers container removal. ──────────

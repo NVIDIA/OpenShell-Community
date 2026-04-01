@@ -16,7 +16,7 @@ and delivers the UI through a browser via noVNC.
 ## Accessing the UI
 
 The noVNC web interface is available on the forwarded port (default 6080).
-Open `http://localhost:6080` in a browser after creating the sandbox with `--forward 6080`.
+Open `http://localhost:6080/index.html` in a browser after creating the sandbox with `--forward 6080`.
 
 ## Workspace
 

@@ -43,7 +43,7 @@ fi
 # ── 3. Open the browser ───────────────────────────────────────────────────────
 echo "[3/3] Sandbox ready!"
 echo ""
-echo "  Open your browser at: http://localhost:${NOVNC_PORT}"
+echo "  Open your browser at: http://localhost:${NOVNC_PORT}/index.html"
 echo ""
 echo "  Useful commands:"
 echo "    openshell logs --tail              # stream sandbox logs"

@@ -1,0 +1,23 @@
+---
+description: Use WSL for Linux containers, bash, and Docker on Windows (Docker Desktop WSL backend)
+alwaysApply: true
+---
+
+# Windows host: WSL + Docker
+
+The maintainer uses **Windows with Docker Desktop (WSL2 backend)** and runs **Linux-based** workflows from **WSL**, not from PowerShell or Git Bash unless `docker` and `bash` are verified there.
+
+## Commands and scripts
+
+- Prefer **`wsl -e bash -lc '...'`** or an **interactive WSL shell** for:
+  - `docker build`, `docker run`, `docker compose`
+  - **`bash sandboxes/cursor-desktop/scripts/local-test.sh`** and other sandbox shell scripts
+- Before suggesting “run this in the terminal,” assume the effective environment is **WSL** when the task is Linux containers or bash.
+
+## Docker Desktop
+
+- Ensure **Settings → Resources → WSL integration** is enabled for the distro in use; open a **new** WSL shell after changing it so `docker` is on `PATH`.
+
+## Line endings (cursor-desktop)
+
+- Shell scripts under `sandboxes/cursor-desktop/` must use **LF** (see repo-root `.gitattributes`). **CRLF** breaks bash shebangs and `set -euo pipefail` inside Linux containers and WSL.

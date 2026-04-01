@@ -5,10 +5,11 @@
 <!--
   Minimal openbox configuration for cursor-desktop sandbox.
   Key behaviours:
-    - New windows are focused and raised automatically (so Chromium appears
-      in front of Cursor when the auth flow opens it).
-    - Chromium is explicitly set to always raise on focus.
-    - No desktop keybindings, no right-click menu, no decorations on Cursor.
+    - Cursor is maximized + undecorated (not EWMH fullscreen — that often black-screens
+      Electron under Xvfb + VNC while still filling the display).
+    - OAuth / external browser windows (Chrome, Firefox, Chromium) use layer
+      “above” and steal focus so they appear on top of Cursor.
+    - Root (desktop) mouse bindings do not open a full Openbox menu.
 -->
 <openbox_config xmlns="http://openbox.org/3.4/rc">
 
@@ -53,14 +54,27 @@
   </resize>
 
   <applications>
-    <!-- Cursor: start maximised, no decorations needed -->
-    <application class="Cursor" name="cursor">
+    <!-- Cursor: fill the screen without EWMH fullscreen (breaks paint on many Electron+VNC setups). -->
+    <application name="cursor" class="Cursor">
       <maximized>yes</maximized>
+      <decorations>no</decorations>
       <layer>normal</layer>
     </application>
 
-    <!-- Chromium: always raise to top when focused / opened -->
+    <!-- Google Chrome (Linux .deb): OAuth / sign-in must stack above Cursor. -->
+    <application name="google-chrome" class="Google-chrome">
+      <layer>above</layer>
+      <focus>yes</focus>
+    </application>
+
+    <!-- Generic Chromium / Electron-based browser builds -->
     <application class="Chromium-browser" name="chromium-browser">
+      <layer>above</layer>
+      <focus>yes</focus>
+    </application>
+
+    <!-- Firefox (arm64 image / alternative browser). -->
+    <application class="Firefox">
       <layer>above</layer>
       <focus>yes</focus>
     </application>
@@ -88,6 +102,18 @@
     <doubleClickTime>200</doubleClickTime>
     <screenEdgeWarpTime>400</screenEdgeWarpTime>
     <screenEdgeWarpMouse>false</screenEdgeWarpMouse>
+    <!-- No Openbox root menu — avoid “desktop environment” affordances in VNC. -->
+    <context name="Root">
+      <mousebind button="Left" action="Press">
+        <action name="Focus"/>
+      </mousebind>
+      <mousebind button="Right" action="Press">
+        <action name="Focus"/>
+      </mousebind>
+      <mousebind button="Middle" action="Press">
+        <action name="Focus"/>
+      </mousebind>
+    </context>
     <context name="Frame">
       <mousebind button="A-Left" action="Press">
         <action name="Focus"/>

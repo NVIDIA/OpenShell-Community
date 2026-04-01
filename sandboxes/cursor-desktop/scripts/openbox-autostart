@@ -8,8 +8,12 @@
 
 # Export session variables so every child process (including xdg-open) picks
 # them up without needing an explicit D-Bus desktop environment query.
+export HOME="${HOME:-/sandbox}"
+export DISPLAY="${DISPLAY:-:1}"
+export XCURSOR_SIZE=24
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=openbox
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-sandbox}"
 
 # Set BROWSER to whichever browser was installed at image build time.
 # On amd64: Google Chrome; on arm64: Firefox (Chrome is amd64-only).
@@ -19,21 +23,32 @@ elif [ -x /usr/bin/firefox ]; then
     export BROWSER=/usr/bin/firefox
 fi
 
-# Set a plain black desktop background.
+# Plain background (visible only before Cursor maps).
 xsetroot -solid "#1e1e1e" &
+wait
 
 # Launch Cursor only when the binary is present (amd64 builds).
 # On arm64 the display stack still starts and the noVNC session is
 # reachable, but Cursor is skipped because it ships amd64-only AppImages.
 if [ -x /usr/bin/cursor ]; then
+    # Let Openbox finish mapping the root window before Electron starts.
+    sleep 2
+
+    # Docker Desktop (Windows) uses a WSL2 kernel inside containers (/proc/version → "microsoft").
+    # Cursor treats that like WSL and otherwise prompts on stdin; without a TTY the UI never starts.
+    # Official bypass (see Cursor stderr): define DONT_PROMPT_WSL_INSTALL.
+    # Xvfb: use X11 + software GL (llvmpipe). Avoid --disable-gpu — with Ozone/X11 it often
+    # yields a black framebuffer in VNC because no software raster path is active.
+    DONT_PROMPT_WSL_INSTALL=1 \
+    GDK_BACKEND=x11 \
+    ELECTRON_OZONE_PLATFORM_HINT=x11 \
     LIBGL_ALWAYS_SOFTWARE=1 \
+    GALLIUM_DRIVER=llvmpipe \
     /usr/bin/cursor \
         --no-sandbox \
-        --disable-gpu \
         --disable-dev-shm-usage \
         --disable-gpu-sandbox \
-        --use-gl=swiftshader \
-        --start-maximized \
+        --ozone-platform=x11 \
         /sandbox/workspace \
         >/tmp/cursor.log 2>&1 &
 fi
