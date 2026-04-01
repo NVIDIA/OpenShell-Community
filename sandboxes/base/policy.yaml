@@ -95,6 +95,30 @@ network_policies:
       - { path: /usr/local/bin/claude }
       - { path: /usr/bin/gh }
 
+  # --- GitHub Copilot API ---
+  # Endpoints from https://docs.github.com/en/copilot/reference/copilot-allowlist-reference
+  copilot:
+    name: copilot
+    endpoints:
+      # Auth and user management
+      - { host: github.com, port: 443 }
+      - { host: api.github.com, port: 443 }
+      # Copilot API (subscription-tier routing)
+      - { host: api.githubcopilot.com, port: 443, protocol: rest, enforcement: enforce, access: read-write }
+      - { host: api.individual.githubcopilot.com, port: 443, protocol: rest, enforcement: enforce, access: read-write }
+      - { host: api.business.githubcopilot.com, port: 443, protocol: rest, enforcement: enforce, access: read-write }
+      - { host: api.enterprise.githubcopilot.com, port: 443, protocol: rest, enforcement: enforce, access: read-write }
+      # Model proxy
+      - { host: copilot-proxy.githubusercontent.com, port: 443, protocol: rest, enforcement: enforce, access: read-write }
+      # Telemetry, feature flags, updates
+      - { host: origin-tracker.githubusercontent.com, port: 443 }
+      - { host: telemetry.enterprise.githubcopilot.com, port: 443 }
+      - { host: default.exp-tas.com, port: 443 }
+      - { host: release-assets.githubusercontent.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/copilot }
+      - { path: "/usr/lib/node_modules/@github/copilot/node_modules/@github/**/copilot" }
+
   pypi:
     name: pypi
     endpoints:
@@ -159,19 +183,6 @@ network_policies:
     - path: /usr/lib/node_modules/opencode-ai/bin/.opencode
     - path: /usr/bin/node
     - path: /usr/local/bin/opencode
-
-  copilot:
-    name: copilot
-    endpoints:
-    - { host: github.com, port: 443 }
-    - { host: api.github.com, port: 443 }
-    - { host: api.githubcopilot.com, port: 443 }
-    - { host: api.enterprise.githubcopilot.com, port: 443 }
-    - { host: release-assets.githubusercontent.com, port: 443 }
-    - { host: copilot-proxy.githubusercontent.com, port: 443 }
-    - { host: default.exp-tas.com, port: 443 }
-    binaries:
-    - { path: /usr/lib/node_modules/@github/copilot/node_modules/@github/**/copilot }
 
   codex:
     name: codex
