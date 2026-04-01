@@ -50,6 +50,73 @@ Or run the example script:
 bash sandboxes/cursor-desktop/examples/quickstart.sh [optional-local-project-dir]
 ```
 
+### Why use OpenShell instead of plain Docker?
+
+`bash scripts/local-test.sh` runs the image with **Docker only**. The container still **isolates** processes from your host OS, but **OpenShell’s policy engine** (Landlock filesystem rules, network allow-lists, process identity, optional provider-scoped credentials) is applied when the sandbox is created **through the OpenShell CLI and gateway**, not when you `docker run` the same image by hand.
+
+In short:
+
+| Path | Policy in `policy.yaml` enforced by OpenShell |
+|------|-----------------------------------------------|
+| `openshell sandbox create --from …` | Yes (with a running gateway) |
+| `docker run` / `local-test.sh` | No — image contains `/etc/openshell/policy.yaml`, but enforcement is an OpenShell runtime concern |
+
+Cursor still cannot read arbitrary host paths unless your runtime **bind-mounts** them into the container; OpenShell adds **extra** guardrails on top of normal container isolation.
+
+### One-time gateway
+
+From the same machine where you run the CLI (use **WSL** on Windows + Docker Desktop if that is where `docker` and `openshell` live):
+
+```bash
+openshell gateway start
+# If the CLI cannot reach the gateway from WSL, see:
+#   openshell gateway start --help
+#   (--gateway-host is useful when Docker is not reachable at 127.0.0.1 from the client)
+```
+
+Check deployment:
+
+```bash
+openshell gateway info
+```
+
+### Create the sandbox with port forward (keeps it alive)
+
+From the root of this repo:
+
+```bash
+openshell sandbox create \
+    --name cursor-desktop \
+    --from ./sandboxes/cursor-desktop \
+    --forward 6080
+```
+
+Optional explicit policy file (overrides defaults for this create):
+
+```bash
+openshell sandbox create \
+    --name cursor-desktop \
+    --from ./sandboxes/cursor-desktop \
+    --policy ./sandboxes/cursor-desktop/policy.yaml \
+    --forward 6080
+```
+
+Then open **`http://localhost:6080/index.html`** (or **`http://127.0.0.1:6080/index.html`**).
+
+Stream logs while tightening policy (sandbox name defaults to last-used if omitted):
+
+```bash
+openshell logs --tail cursor-desktop
+```
+
+Hot-reload policy on a live sandbox:
+
+```bash
+openshell policy set --policy ./sandboxes/cursor-desktop/policy.yaml cursor-desktop
+```
+
+**Electron / `/dev/shm`:** `local-test.sh` uses **`--shm-size 2g`**. If Cursor is unstable under OpenShell, check the core OpenShell / gateway docs for how to raise shared memory for sandbox workloads.
+
 ## Local testing (Docker)
 
 A helper script builds and runs the sandbox with Docker directly, without requiring
