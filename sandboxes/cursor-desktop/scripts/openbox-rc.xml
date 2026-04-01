@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<!--
+  Minimal openbox configuration for cursor-desktop sandbox.
+  Key behaviours:
+    - New windows are focused and raised automatically (so Chromium appears
+      in front of Cursor when the auth flow opens it).
+    - Chromium is explicitly set to always raise on focus.
+    - No desktop keybindings, no right-click menu, no decorations on Cursor.
+-->
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+
+  <focus>
+    <!-- Raise and focus any window that is newly mapped (opened). -->
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+    <focusLast>yes</focusLast>
+    <underMouse>no</underMouse>
+    <focusDelay>0</focusDelay>
+    <raiseOnFocus>yes</raiseOnFocus>
+  </focus>
+
+  <placement>
+    <policy>Smart</policy>
+    <center>yes</center>
+    <monitor>Primary</monitor>
+  </placement>
+
+  <theme>
+    <name>Clearlooks</name>
+    <titleLayout>NLC</titleLayout>
+    <keepBorder>yes</keepBorder>
+    <animateIconify>no</animateIconify>
+  </theme>
+
+  <desktops>
+    <number>1</number>
+    <firstdesk>1</firstdesk>
+    <names><name>Desktop</name></names>
+    <popupTime>0</popupTime>
+  </desktops>
+
+  <resize>
+    <drawContents>yes</drawContents>
+    <popupShow>Never</popupShow>
+  </resize>
+
+  <applications>
+    <!-- Cursor: start maximised, no decorations needed -->
+    <application class="Cursor" name="cursor">
+      <maximized>yes</maximized>
+      <layer>normal</layer>
+    </application>
+
+    <!-- Chromium: always raise to top when focused / opened -->
+    <application class="Chromium-browser" name="chromium-browser">
+      <layer>above</layer>
+      <focus>yes</focus>
+    </application>
+  </applications>
+
+  <!-- Minimal keyboard bindings — keep Super+H to hide a window if needed -->
+  <keyboard>
+    <chainQuitKey>C-g</chainQuitKey>
+    <keybind key="A-F4">
+      <action name="Close"/>
+    </keybind>
+    <keybind key="A-Tab">
+      <action name="NextWindow">
+        <finalactions>
+          <action name="Focus"/>
+          <action name="Raise"/>
+          <action name="Unshade"/>
+        </finalactions>
+      </action>
+    </keybind>
+  </keyboard>
+
+  <mouse>
+    <dragThreshold>1</dragThreshold>
+    <doubleClickTime>200</doubleClickTime>
+    <screenEdgeWarpTime>400</screenEdgeWarpTime>
+    <screenEdgeWarpMouse>false</screenEdgeWarpMouse>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Press">
+        <action name="Focus"/>
+        <action name="Raise"/>
+        <action name="Move"/>
+      </mousebind>
+    </context>
+  </mouse>
+
+</openbox_config>

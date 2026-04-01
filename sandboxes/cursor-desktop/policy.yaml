@@ -1,0 +1,146 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /etc
+    - /var/log
+    - /app
+    - /opt/Cursor
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+#
+# Each named policy maps a set of allowed (binary, endpoint) pairs.
+# Binary identity is resolved via /proc/net/tcp inode lookup + /proc/{pid}/exe.
+# Ancestors (/proc/{pid}/status PPid walk) and cmdline paths are also matched.
+# SHA256 integrity is enforced in Rust via trust-on-first-use, not here.
+#
+# NOTE: OPA host matching uses exact equality — list subdomains explicitly,
+# no globs. Run with enforcement_mode: audit on first launch and promote
+# denied endpoints observed in `openshell logs` before switching to enforce.
+
+network_policies:
+
+  # Cursor application, auth, and AI inference endpoints.
+  # cursor.blob.core.windows.net: Azure CDN used for extension/package downloads.
+  # api2.cursor.sh: primary AI/chat API.
+  # repo.cursor.sh / download.cursor.sh: package and update repositories
+  #   (update.mode:none in settings.json suppresses active polls, but the
+  #   Electron app may still resolve these on startup).
+  cursor_app:
+    name: cursor-app
+    endpoints:
+      - { host: cursor.com,                          port: 443 }
+      - { host: www.cursor.com,                      port: 443 }
+      - { host: api2.cursor.sh,                      port: 443 }
+      - { host: api.cursor.sh,                       port: 443 }
+      - { host: cursor.so,                           port: 443 }
+      - { host: cursor.blob.core.windows.net,        port: 443 }
+      - { host: repo.cursor.sh,                      port: 443 }
+      - { host: download.cursor.sh,                  port: 443 }
+      - { host: cursor.download.prss.microsoft.com,  port: 443 }
+    binaries:
+      - { path: /usr/bin/cursor }
+      - { path: /opt/Cursor/cursor }
+      - { path: "/opt/Cursor/**" }
+
+  # Git operations over HTTPS.
+  # Write rules (git-receive-pack) are commented out for least-privilege defaults.
+  # Uncomment and scope to specific repos when push is required.
+  github:
+    name: github
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          # Clone / fetch / pull
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+          # Push — uncomment and replace <owner>/<repo> to scope narrowly
+          # - allow:
+          #     method: POST
+          #     path: "/<owner>/<repo>/git-receive-pack"
+    binaries:
+      - { path: /usr/bin/git }
+      - { path: /usr/bin/cursor }
+      - { path: "/opt/Cursor/**" }
+
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**"
+          - allow:
+              method: HEAD
+              path: "/**"
+          - allow:
+              method: OPTIONS
+              path: "/**"
+          # Uncomment for write access:
+          # - allow:
+          #     method: "*"
+          #     path: "/repos/<owner>/<repo>/**"
+    binaries:
+      - { path: /usr/bin/git }
+      - { path: /usr/bin/cursor }
+
+  gitlab:
+    name: gitlab
+    endpoints:
+      - { host: gitlab.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/git }
+
+  # Local or provider-managed inference routing.
+  # Attach an OpenShell provider instead of baking raw API keys into the image.
+  inference_local:
+    name: inference-local
+    endpoints:
+      - { host: inference.local, port: 443 }
+    binaries:
+      - { path: /usr/bin/cursor }
+      - { path: /opt/Cursor/cursor }
+      - { path: "/opt/Cursor/**" }
+
+  # NVIDIA inference — enable when routing Cursor AI through NIM endpoints.
+  nvidia_inference:
+    name: nvidia-inference
+    endpoints:
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/cursor }
+      - { path: "/opt/Cursor/**" }

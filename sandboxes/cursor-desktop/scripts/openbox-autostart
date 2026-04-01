@@ -1,0 +1,39 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Openbox autostart — runs inside the same dbus-launch session as openbox.
+# Launching Cursor here (rather than from startup.sh) ensures it inherits
+# DBUS_SESSION_BUS_ADDRESS so that xdg-open can spawn Chromium for auth flows.
+
+# Export session variables so every child process (including xdg-open) picks
+# them up without needing an explicit D-Bus desktop environment query.
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=openbox
+
+# Set BROWSER to whichever browser was installed at image build time.
+# On amd64: Google Chrome; on arm64: Firefox (Chrome is amd64-only).
+if [ -x /usr/bin/google-chrome-stable ]; then
+    export BROWSER=/usr/bin/google-chrome-stable
+elif [ -x /usr/bin/firefox ]; then
+    export BROWSER=/usr/bin/firefox
+fi
+
+# Set a plain black desktop background.
+xsetroot -solid "#1e1e1e" &
+
+# Launch Cursor only when the binary is present (amd64 builds).
+# On arm64 the display stack still starts and the noVNC session is
+# reachable, but Cursor is skipped because it ships amd64-only AppImages.
+if [ -x /usr/bin/cursor ]; then
+    LIBGL_ALWAYS_SOFTWARE=1 \
+    /usr/bin/cursor \
+        --no-sandbox \
+        --disable-gpu \
+        --disable-dev-shm-usage \
+        --disable-gpu-sandbox \
+        --use-gl=swiftshader \
+        --start-maximized \
+        /sandbox/workspace \
+        >/tmp/cursor.log 2>&1 &
+fi
