@@ -96,6 +96,7 @@ network_policies:
         protocol: rest
         tls: terminate
         enforcement: enforce
+        access: read-only
     binaries:
       - { path: /usr/bin/git }
       - { path: /usr/bin/gh }
