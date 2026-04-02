@@ -84,7 +84,9 @@
             });
         }
 
-        connect();
+        // Brief delay before the first connect gives x11vnc time to finish any
+        // startup handshake noise (notably on slower Docker Desktop / macOS hosts).
+        setTimeout(connect, 600);
     </script>
 </body>
 </html>

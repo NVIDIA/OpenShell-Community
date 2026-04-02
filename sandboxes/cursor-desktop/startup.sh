@@ -23,6 +23,10 @@ export XDG_CONFIG_HOME="/sandbox/.config"
 WORKSPACE="${WORKSPACE:-/sandbox/workspace}"
 VNC_PORT="${VNC_PORT:-5901}"
 NOVNC_PORT="${NOVNC_PORT:-6080}"
+# After x11vnc reports LISTEN, wait this many seconds before starting websockify.
+# Docker Desktop on macOS is often slower; transient TCP probes to the VNC port can
+# confuse x11vnc's WebSocket detector and yield browser close code 1002 — see README.
+VNC_WS_SETTLE_SEC="${VNC_WS_SETTLE_SEC:-2}"
 
 # Electron / keyring helpers often expect a writable runtime dir (even in Xvfb).
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-sandbox}"
@@ -86,8 +90,20 @@ x11vnc -display "$DISPLAY" -forever -shared -rfbport "$VNC_PORT" -nopw -localhos
 VNC_PID=$!
 
 echo "[cursor-desktop] Waiting for x11vnc..."
+# Do NOT use repeated `nc -z` here: each probe opens TCP to x11vnc, which treats
+# empty connections as possible WebSocket handshakes and logs errors; racing with
+# the first real websockify connection causes WebSocket close code 1002 in the browser.
+_vnc_port_listening() {
+    if command -v ss >/dev/null 2>&1; then
+        ss -lnt 2>/dev/null | grep -qE ":${VNC_PORT}[[:space:]]"
+    else
+        nc -z localhost "$VNC_PORT" 2>/dev/null
+    fi
+}
 for i in $(seq 1 30); do
-    nc -z localhost "$VNC_PORT" 2>/dev/null && break
+    if _vnc_port_listening; then
+        break
+    fi
     if ! kill -0 "$VNC_PID" 2>/dev/null; then
         echo "[cursor-desktop] x11vnc exited unexpectedly. x11vnc log:" >&2
         cat /tmp/x11vnc.log >&2 || echo "(no log written)" >&2
@@ -95,11 +111,8 @@ for i in $(seq 1 30); do
     fi
     sleep 0.5
 done
-# Allow x11vnc to finish processing any startup probes before websockify
-# makes its first connection. Without this pause the initial browser
-# connection can arrive while x11vnc is still handling a WebSocket-detection
-# false-positive, causing the browser to receive close code 1002.
-sleep 1
+# Let x11vnc settle after the listener appears (especially on macOS / emulated amd64).
+sleep "$VNC_WS_SETTLE_SEC"
 echo "[cursor-desktop] x11vnc ready."
 
 # ── 4. websockify: HTTP (noVNC static files) + WebSocket (/websockify) on one port ─

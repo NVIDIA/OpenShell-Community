@@ -125,6 +125,19 @@ kill <PID>
 openshell forward start 6080 cursor-desktop
 ```
 
+### macOS (Docker Desktop)
+
+- **Docker socket:** if `docker` / OpenShell cannot talk to the daemon, set `DOCKER_HOST` to the user socket (path varies by Docker Desktop version), for example:
+  ```bash
+  export DOCKER_HOST=unix:///Users/<you>/.docker/run/docker.sock
+  ```
+- **Apple Silicon:** Cursor and Google Chrome in this image are **linux/amd64**. Docker Desktop typically runs them via emulation; cold start can be slower than on native Linux/WSL.
+- **noVNC: “window terminated unexpectedly” / WebSocket close code 1002:** x11vnc can mis-handle **empty TCP probes** to the VNC port during startup. `startup.sh` waits for port **5901** using **`ss`** (listen check) instead of repeated `nc -z`, then waits **`VNC_WS_SETTLE_SEC`** seconds (default **2**) before websockify starts. If 1002 still appears on a slow Mac, rebuild the image with a larger settle time and recreate the sandbox:
+  ```bash
+  docker build --build-arg VNC_WS_SETTLE_SEC=4 -t openshell-cursor-desktop sandboxes/cursor-desktop/
+  ```
+  When using `openshell sandbox create --from ./sandboxes/cursor-desktop`, the gateway rebuilds from that Dockerfile; set `ARG VNC_WS_SETTLE_SEC` in the Dockerfile temporarily or pass your host’s supported build-arg if available.
+
 Stream logs while tightening policy (sandbox name defaults to last-used if omitted):
 
 ```bash

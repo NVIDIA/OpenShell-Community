@@ -179,12 +179,16 @@ fails, and logs `webSocketsHandshake: unknown connection error`. If the browser 
 websockify at the same moment as a probe, websockify's first backend TCP connection is rejected,
 and the browser receives WebSocket close code 1002.
 
-**Fix 1 (startup.sh):** Add `sleep 1` after x11vnc is declared ready. This lets x11vnc finish
-processing any startup probe noise before the first real browser connection arrives.
+**Fix 1 (startup.sh):** Add a settle delay after x11vnc is declared ready (default **2s** via
+`VNC_WS_SETTLE_SEC`) so the first websockify connection does not race x11vnc's WebSocket detector.
 
-**Fix 2 (novnc-index.html):** The custom noVNC page now reconnects silently in 1 second (down
-from 3 seconds) and only shows "Reconnecting…" if the session was previously established and then
-dropped. Transient startup blips are invisible to the user.
+**Fix 1b (startup.sh, preferred):** Avoid repeated **`nc -z`** probes against the VNC port while
+waiting for x11vnc — each probe opens TCP and can trigger the same false-positive path. Use
+**`ss -lnt`** (or equivalent) to detect **LISTEN** without connecting.
+
+**Fix 2 (novnc-index.html):** The custom noVNC page reconnects silently after disconnect and
+defers the **first** connect by ~600ms to reduce races on slow hosts (e.g. Docker Desktop on macOS).
+It only shows "Reconnecting…" if the session was previously established and then dropped.
 
 **What NOT to do:** Adding `-noweb` to x11vnc flags causes x11vnc 0.9.16 to exit immediately
 (unknown flag). Do not use it.

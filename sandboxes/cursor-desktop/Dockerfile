@@ -24,13 +24,16 @@ FROM nvcr.io/nvidia/base/ubuntu:noble-20251013
 # ── Build arguments ────────────────────────────────────────────────────────────
 # Pin the Cursor version for reproducible builds.
 ARG CURSOR_VERSION=2.6
+# Seconds to wait after x11vnc is listening before websockify connects (macOS / slow VMs).
+ARG VNC_WS_SETTLE_SEC=2
 
 # ── Environment ────────────────────────────────────────────────────────────────
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:1 \
     VNC_PORT=5901 \
     NOVNC_PORT=6080 \
-    CURSOR_VERSION=${CURSOR_VERSION}
+    CURSOR_VERSION=${CURSOR_VERSION} \
+    VNC_WS_SETTLE_SEC=${VNC_WS_SETTLE_SEC}
 
 WORKDIR /sandbox
 

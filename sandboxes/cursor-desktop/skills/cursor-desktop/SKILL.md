@@ -18,6 +18,10 @@ and delivers the UI through a browser via noVNC.
 The noVNC web interface is available on the forwarded port (default 6080).
 Open `http://localhost:6080/index.html` in a browser after creating the sandbox with `--forward 6080`.
 
+On **macOS**, if noVNC shows WebSocket close **1002** (“window terminated unexpectedly”), see the
+README section **macOS (Docker Desktop)** — `startup.sh` avoids probing the VNC port with `nc` and
+uses `VNC_WS_SETTLE_SEC` (build-arg in the Dockerfile) to tolerate slow Docker Desktop startups.
+
 ## Workspace
 
 Projects should be placed under `/sandbox/workspace`. This directory is the default location
