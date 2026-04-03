@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Factory Droid sandbox image for OpenShell

@@ -59,7 +59,7 @@ network_policies:
       - { host: "*.ingest.sentry.io", port: 443 }
     binaries:
       - { path: "/usr/lib/node_modules/droid/**" }
-      - { path: /usr/local/bin/droid }
+      - { path: /usr/bin/droid }
       - { path: /usr/bin/node }
 
   # --- BYOK: direct model provider access ---
@@ -77,7 +77,7 @@ network_policies:
       - { host: api-inference.huggingface.co, port: 443 }
     binaries:
       - { path: "/usr/lib/node_modules/droid/**" }
-      - { path: /usr/local/bin/droid }
+      - { path: /usr/bin/droid }
       - { path: /usr/bin/node }
 
   # --- GitHub (full read + write access) ---
