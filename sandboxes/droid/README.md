@@ -23,7 +23,7 @@ docker build -t openshell-droid --build-arg BASE_IMAGE=ghcr.io/nvidia/openshell-
 
 ### 1. Set up inference routing
 
-Direct access to external inference endpoints is blocked inside OpenShell sandboxes (SSRF protection). Use OpenShell's `inference.local` routing instead:
+Direct access to NVIDIA inference endpoints (`inference-api.nvidia.com`, `integrate.api.nvidia.com`) is blocked inside OpenShell sandboxes (SSRF protection). Use OpenShell's `inference.local` routing instead:
 
 ```bash
 # Create an NVIDIA provider with your API key
@@ -85,6 +85,6 @@ Key details:
 ### 4. Run Droid
 
 ```bash
-export FACTORY_API_KEY=EMPTY
+export FACTORY_API_KEY=fk-YOUR_KEY_HERE
 droid exec --skip-permissions-unsafe --model "custom:nvidia/nemotron-3-super-120b-a12b" "echo hello"
 ```
