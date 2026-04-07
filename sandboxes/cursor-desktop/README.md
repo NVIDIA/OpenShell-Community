@@ -234,6 +234,29 @@ docker build --platform linux/amd64 --build-arg CURSOR_VERSION=<new-version> ...
 The default `policy.yaml` covers the core Cursor application endpoints, GitHub git
 operations (read-only by default), and the OpenShell `inference.local` provider route.
 
+### Why the OpenShell CLI asks you to approve many “rules”
+
+OpenShell sandboxes use a **default-deny** network model: every outbound TCP connection is
+checked against **(executable path, host, port)** allow lists in `policy.yaml`. If there is
+no matching rule, the gateway (or companion CLI flow) can **block** the connection and
+offer to **approve** a new rule so that host is allowed next time.
+
+That is expected when the policy is incomplete. Two patterns caused a lot of prompts for
+cursor-desktop historically:
+
+1. **VS Marketplace CDNs** — Microsoft serves extension payloads from **per-publisher**
+   hostnames such as `someone.gallerycdn.vsassets.io`. Without a wildcard entry, each
+   publisher looked like a **new** destination and triggered another approval. The policy
+   now includes `*.gallerycdn.vsassets.io`, `*.gallery.vsassets.io`, and related VS Code
+   endpoints (see `cursor_app` in `policy.yaml`).
+2. **Sign-in and telemetry** — Cursor, Chrome, and OAuth flows touch many domains; those
+   are enumerated under `cursor_app` and `browser_auth_audit`.
+
+After updating `policy.yaml`, apply network changes with `openshell policy set`. If you
+change **`filesystem_policy`** (for example adding `/dev/ptmx` / `/dev/pts` for the
+integrated terminal), you must **delete and recreate** the sandbox — filesystem rules are
+**static** and are not fixed by `policy set` alone.
+
 **First-run workflow** — Cursor is an Electron app and may call endpoints not yet in the
 allow-list on first launch. Start in audit mode, collect denied events with
 `openshell logs`, and add missing hosts before switching to enforce:
@@ -252,6 +275,15 @@ openshell policy set ./sandboxes/cursor-desktop/policy.yaml
 
 To enable git push to GitHub, uncomment and scope the `git-receive-pack` rule in
 `policy.yaml` to your specific repository.
+
+**Google / Gmail sign-in looks stuck on the email field:** the allow-list must include
+Google’s static and API hosts (`ssl.gstatic.com`, `apis.google.com`, etc.), not only
+`accounts.google.com`. Cursor may perform part of the flow from the **Electron** binary,
+so those hosts are listed under **both** `cursor_app` and `browser_auth_audit` in
+`policy.yaml`. After editing, apply without rebuilding the container:
+`openshell policy set --policy ./sandboxes/cursor-desktop/policy.yaml cursor-desktop`.
+If it still fails, run `openshell logs --tail` while retrying sign-in and add any
+**denied** hosts you see.
 
 ## Smoke test
 

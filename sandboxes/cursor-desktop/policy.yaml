@@ -25,6 +25,9 @@ filesystem_policy:
     - /dev/null
     # Chrome uses /dev/shm for shared memory; without it, startup can fail or hang.
     - /dev/shm
+    # PTYs for Cursor's integrated terminal (openpty / /dev/ptmx + /dev/pts).
+    - /dev/ptmx
+    - /dev/pts
 
 landlock:
   compatibility: best_effort
@@ -40,9 +43,9 @@ process:
 # Ancestors (/proc/{pid}/status PPid walk) and cmdline paths are also matched.
 # SHA256 integrity is enforced in Rust via trust-on-first-use, not here.
 #
-# NOTE: OPA host matching uses exact equality — list subdomains explicitly,
-# no globs. Run with enforcement_mode: audit on first launch and promote
-# denied endpoints observed in `openshell logs` before switching to enforce.
+# Host field supports wildcards (OpenShell policy schema), e.g. *.gallerycdn.vsassets.io
+# for per-publisher VS Marketplace CDNs — without these, each extension download can
+# surface as a separate approval in the CLI. See README "Policy" for manual approvals.
 
 network_policies:
 
@@ -65,12 +68,64 @@ network_policies:
       - { host: repo.cursor.sh,                      port: 443 }
       - { host: download.cursor.sh,                  port: 443 }
       - { host: cursor.download.prss.microsoft.com,  port: 443 }
+      # VS Code / Cursor extension marketplace & updates (see also code.visualstudio.com/docs/setup/network).
+      - { host: update.code.visualstudio.com,           port: 443 }
+      - { host: code.visualstudio.com,                  port: 443 }
+      - { host: go.microsoft.com,                       port: 443 }
+      - { host: marketplace.visualstudio.com,         port: 443 }
+      - { host: "*.gallery.vsassets.io",                port: 443 }
+      - { host: "*.gallerycdn.vsassets.io",           port: 443 }
+      - { host: "*.vscode-cdn.net",                     port: 443 }
+      - { host: "*.vscode-unpkg.net",                   port: 443 }
+      - { host: vscode.download.prss.microsoft.com,     port: 443 }
+      - { host: download.visualstudio.microsoft.com,    port: 443 }
+      - { host: vscode-sync.trafficmanager.net,         port: 443 }
+      - { host: vscode-sync-insiders.trafficmanager.net, port: 443 }
+      - { host: vscode.dev,                             port: 443 }
+      - { host: raw.githubusercontent.com,              port: 443 }
+      - { host: vsmarketplacebadges.dev,                port: 443 }
+      - { host: default.exp-tas.com,                    port: 443 }
+      - { host: az764295.vo.msecnd.net,                 port: 443 }
+      - { host: rink.hockeyapp.net,                     port: 443 }
+      - { host: marketplace.cursorapi.com,              port: 443 }
+      # Sign-in / "Continue with Google" often runs inside Cursor's Electron shell, not only Chrome.
+      # Google's pages pull JS from gstatic and apis.google.com; omitting them breaks the email step.
+      - { host: accounts.google.com,                 port: 443 }
+      - { host: android.clients.google.com,          port: 443 }
+      - { host: apis.google.com,                     port: 443 }
+      - { host: clients2.google.com,                 port: 443 }
+      - { host: clients4.google.com,                 port: 443 }
+      - { host: clients6.google.com,                 port: 443 }
+      - { host: content.googleapis.com,              port: 443 }
+      - { host: fonts.googleapis.com,                port: 443 }
+      - { host: fonts.gstatic.com,                   port: 443 }
+      - { host: google.com,                          port: 443 }
+      - { host: myaccount.google.com,                port: 443 }
+      - { host: oauth2.googleapis.com,               port: 443 }
+      - { host: ogs.google.com,                      port: 443 }
+      - { host: people.googleapis.com,               port: 443 }
+      - { host: play.google.com,                     port: 443 }
+      - { host: safebrowsing.googleapis.com,           port: 443 }
+      - { host: ssl.gstatic.com,                     port: 443 }
+      - { host: www.google.com,                      port: 443 }
+      - { host: www.googleapis.com,                  port: 443 }
+      - { host: www.gstatic.com,                     port: 443 }
+      - { host: www.recaptcha.net,                   port: 443 }
     binaries:
       - { path: /usr/bin/cursor }
       - { path: /usr/share/cursor/cursor }
       - { path: "/usr/share/cursor/**" }
       - { path: /opt/Cursor/cursor }
       - { path: "/opt/Cursor/**" }
+      # Shells + fetch tools often perform the actual TCP connect for terminal workflows.
+      - { path: /usr/bin/bash }
+      - { path: /bin/bash }
+      - { path: /usr/bin/sh }
+      - { path: /bin/sh }
+      - { path: /usr/bin/dash }
+      - { path: /bin/dash }
+      - { path: /usr/bin/curl }
+      - { path: /usr/bin/wget }
 
   # Browser-based OAuth / sign-in flows.
   #
@@ -84,7 +139,26 @@ network_policies:
       - { host: cursor.com,                         port: 443 }
       - { host: www.cursor.com,                     port: 443 }
       - { host: accounts.google.com,                port: 443 }
+      - { host: android.clients.google.com,         port: 443 }
+      - { host: apis.google.com,                    port: 443 }
+      - { host: clients2.google.com,                port: 443 }
+      - { host: clients4.google.com,                port: 443 }
+      - { host: clients6.google.com,                port: 443 }
+      - { host: content.googleapis.com,             port: 443 }
+      - { host: fonts.googleapis.com,               port: 443 }
+      - { host: fonts.gstatic.com,                  port: 443 }
+      - { host: google.com,                         port: 443 }
+      - { host: myaccount.google.com,               port: 443 }
       - { host: oauth2.googleapis.com,              port: 443 }
+      - { host: ogs.google.com,                     port: 443 }
+      - { host: people.googleapis.com,              port: 443 }
+      - { host: play.google.com,                    port: 443 }
+      - { host: safebrowsing.googleapis.com,        port: 443 }
+      - { host: ssl.gstatic.com,                    port: 443 }
+      - { host: www.google.com,                     port: 443 }
+      - { host: www.googleapis.com,                 port: 443 }
+      - { host: www.gstatic.com,                    port: 443 }
+      - { host: www.recaptcha.net,                  port: 443 }
       - { host: login.microsoftonline.com,          port: 443 }
       - { host: device.login.microsoftonline.com,  port: 443 }
       - { host: github.com,                         port: 443 }
@@ -96,6 +170,9 @@ network_policies:
       - { path: /usr/bin/google-chrome-stable }
       - { path: /opt/google/chrome/chrome }
       - { path: "/opt/google/chrome/**" }
+      - { path: /usr/bin/firefox }
+      - { path: /usr/lib/firefox/firefox }
+      - { path: "/usr/lib/firefox/**" }
 
   # Git operations over HTTPS.
   # Write rules (git-receive-pack) are commented out for least-privilege defaults.
