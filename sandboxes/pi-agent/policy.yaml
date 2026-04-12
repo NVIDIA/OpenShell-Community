@@ -1,0 +1,118 @@
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+
+network_policies:
+  # Pi coding agent — Anthropic
+  pi_anthropic:
+    name: pi_anthropic
+    endpoints:
+      - { host: api.anthropic.com, port: 443, protocol: rest, enforcement: enforce, access: full, tls: terminate }
+      - { host: statsig.anthropic.com, port: 443 }
+      - { host: sentry.io, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/pi }
+      - { path: /usr/bin/node }
+
+  # Pi coding agent — OpenAI
+  pi_openai:
+    name: pi_openai
+    endpoints:
+      - { host: api.openai.com, port: 443, protocol: rest, enforcement: enforce, access: full, tls: terminate }
+    binaries:
+      - { path: /usr/local/bin/pi }
+      - { path: /usr/bin/node }
+
+  # Pi coding agent — Google
+  pi_google:
+    name: pi_google
+    endpoints:
+      - { host: generativelanguage.googleapis.com, port: 443, protocol: rest, enforcement: enforce, access: full, tls: terminate }
+    binaries:
+      - { path: /usr/local/bin/pi }
+      - { path: /usr/bin/node }
+
+  # Pi coding agent — NVIDIA
+  pi_nvidia:
+    name: pi_nvidia
+    endpoints:
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/pi }
+      - { path: /usr/bin/node }
+
+  # GitHub (read-only git clone/fetch/pull)
+  github:
+    name: github
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+    binaries:
+      - { path: /usr/bin/git }
+
+  # GitHub REST API (read-only)
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**"
+          - allow:
+              method: HEAD
+              path: "/**"
+          - allow:
+              method: OPTIONS
+              path: "/**"
+    binaries:
+      - { path: /usr/local/bin/pi }
+      - { path: /usr/bin/node }
+      - { path: /usr/bin/gh }
+
+  # npm registry (for pi install/update)
+  npm_registry:
+    name: npm_registry
+    endpoints:
+      - { host: registry.npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/pi }
