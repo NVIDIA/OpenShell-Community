@@ -57,6 +57,8 @@ RUN chmod +x /usr/local/bin/entrypoint /sandbox/bin/update-ollama
 # /sandbox/bin comes first so the writable ollama binary is preferred
 ENV OLLAMA_HOST=http://127.0.0.1:11434 \
     NPM_CONFIG_PREFIX=/sandbox/.npm-global \
+    ANTHROPIC_MODEL=claude-opus-4-7 \
+    CLAUDE_CODE_EFFORT_LEVEL=max \
     PATH="/sandbox/bin:/sandbox/.npm-global/bin:/sandbox/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 
 # Configure npm to install globals into a writable directory
@@ -70,6 +72,8 @@ RUN echo 'export OLLAMA_HOST=http://127.0.0.1:11434' >> /sandbox/.bashrc && \
     echo 'export PATH="/sandbox/bin:/sandbox/.npm-global/bin:$PATH"' >> /sandbox/.bashrc && \
     echo 'export PATH="/opt/conda/bin:$PATH"' >> /sandbox/.bashrc && \
     echo 'export GIT_SSL_CAINFO=/etc/openshell-tls/ca-bundle.pem' >> /sandbox/.bashrc && \
+    echo 'export ANTHROPIC_MODEL=claude-opus-4-7' >> /sandbox/.bashrc && \
+    echo 'export CLAUDE_CODE_EFFORT_LEVEL=max' >> /sandbox/.bashrc && \
     chown sandbox:sandbox /sandbox/.bashrc
 
 ENV GIT_SSL_CAINFO=/etc/openshell-tls/ca-bundle.pem 
