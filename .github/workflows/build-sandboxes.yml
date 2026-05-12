@@ -176,10 +176,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine parent sandbox
+        id: parent
+        run: |
+          set -euo pipefail
+          DOCKERFILE="sandboxes/${{ matrix.sandbox }}/Dockerfile"
+          DEFAULT_BASE=""
+          if grep -q '^ARG BASE_IMAGE=' "$DOCKERFILE"; then
+            DEFAULT_BASE=$(grep '^ARG BASE_IMAGE=' "$DOCKERFILE" | head -1 | cut -d= -f2-)
+          fi
+
+          PARENT=""
+          if [ -n "$DEFAULT_BASE" ]; then
+            PARENT=$(echo "$DEFAULT_BASE" | sed -n 's|.*/sandboxes/\([^:]*\).*|\1|p')
+            if [ -z "$PARENT" ]; then
+              PARENT="base"
+            fi
+          fi
+
+          echo "sandbox=$PARENT" >> "$GITHUB_OUTPUT"
+          if [ -n "$PARENT" ]; then
+            echo "Parent for ${{ matrix.sandbox }}: $PARENT"
+          else
+            echo "${{ matrix.sandbox }} is a standalone sandbox image"
+          fi
+
       # On PRs the base image is not in GHCR. Build it locally, push to the
-      # local registry, and override BASE_IMAGE to point there.
+      # local registry, and override BASE_IMAGE to point there for dependent
+      # sandbox images. Standalone images do not need this step.
       - name: Build base image locally (PR only)
-        if: github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/main' && steps.parent.outputs.sandbox != ''
         uses: docker/build-push-action@v6
         with:
           context: sandboxes/base
@@ -187,22 +213,10 @@ jobs:
           tags: localhost:5000/sandboxes/base:latest
           cache-from: type=gha,scope=base
 
-      - name: Determine parent sandbox
-        id: parent
-        run: |
-          set -euo pipefail
-          DEFAULT_BASE=$(grep '^ARG BASE_IMAGE=' "sandboxes/${{ matrix.sandbox }}/Dockerfile" | head -1 | cut -d= -f2-)
-          PARENT=$(echo "$DEFAULT_BASE" | sed -n 's|.*/sandboxes/\([^:]*\).*|\1|p')
-          if [ -z "$PARENT" ]; then
-            PARENT="base"
-          fi
-          echo "sandbox=$PARENT" >> "$GITHUB_OUTPUT"
-          echo "Parent for ${{ matrix.sandbox }}: $PARENT"
-
       # When a sandbox depends on another sandbox (not base), build that
       # intermediate parent locally so it is available to the buildx build.
       - name: Build parent sandbox locally (PR only)
-        if: github.ref != 'refs/heads/main' && steps.parent.outputs.sandbox != 'base'
+        if: github.ref != 'refs/heads/main' && steps.parent.outputs.sandbox != '' && steps.parent.outputs.sandbox != 'base'
         uses: docker/build-push-action@v6
         with:
           context: sandboxes/${{ steps.parent.outputs.sandbox }}
@@ -216,7 +230,9 @@ jobs:
         id: base
         run: |
           PARENT="${{ steps.parent.outputs.sandbox }}"
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          if [ -z "$PARENT" ]; then
+            echo "image=" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "image=${{ env.REGISTRY }}/${{ steps.repo.outputs.image_prefix }}/sandboxes/${PARENT}:latest" >> "$GITHUB_OUTPUT"
           else
             echo "image=localhost:5000/sandboxes/${PARENT}:latest" >> "$GITHUB_OUTPUT"
@@ -231,11 +247,20 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Set build platforms
+        id: platforms
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ matrix.sandbox }}" = "nvidia-gpu" ]; then
+            echo "value=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=linux/amd64" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: sandboxes/${{ matrix.sandbox }}
-          platforms: ${{ github.ref == 'refs/heads/main' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: ${{ steps.platforms.outputs.value }}
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -243,5 +268,4 @@ jobs:
             BASE_IMAGE=${{ steps.base.outputs.image }}
           cache-from: type=gha,scope=${{ matrix.sandbox }}
           cache-to: type=gha,mode=max,scope=${{ matrix.sandbox }}
-
 

@@ -19,6 +19,10 @@ Image: docker/dockerfile:1.4 (BuildKit frontend)
 License: Apache-2.0
 URL: https://github.com/moby/buildkit
 
+Image: nvidia/cuda:12.8.1-base-ubuntu22.04
+License: NVIDIA CUDA Toolkit End User License Agreement and Ubuntu component licenses
+URL: https://hub.docker.com/r/nvidia/cuda
+
 ================================================================================
 System Packages (APT — Ubuntu 24.04)
 ================================================================================

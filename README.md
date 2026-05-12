@@ -26,6 +26,7 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | `sandboxes/ollama/`     | Ollama for local and cloud LLMs with Claude Code, Codex, OpenCode pre-installed |
 | `sandboxes/sdg/`        | Synthetic data generation workflows                          |
 | `sandboxes/openclaw/`   | OpenClaw -- open agent manipulation and control              |
+| `sandboxes/nvidia-gpu/` | GPU-enabled VM sandbox image with NVIDIA userspace tooling   |
 
 ## Getting Started
 
