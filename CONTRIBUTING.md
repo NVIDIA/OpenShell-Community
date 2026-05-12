@@ -58,7 +58,7 @@ Requirements:
 
 ## Adding a Skill
 
-Skills live inside their sandbox's `skills/` directory (e.g., `sandboxes/openclaw/skills/my-skill/`). Each skill should include:
+Skills live inside their sandbox's `skills/` directory (e.g., `sandboxes/my-sandbox/skills/my-skill/`). Each skill should include:
 - A `SKILL.md` describing what it does and when to use it
 - Any supporting files the skill needs
 - A README with usage examples

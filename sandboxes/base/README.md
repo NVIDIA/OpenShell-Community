@@ -55,7 +55,7 @@ FROM ${BASE_IMAGE}
 # Add your sandbox-specific layers here
 ```
 
-See `sandboxes/openclaw/` for an example.
+See the other directories under `sandboxes/` for examples.
 
 ## Codex authentication
 
