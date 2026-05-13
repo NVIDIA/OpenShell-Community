@@ -21,7 +21,8 @@ WORKDIR /sandbox
 
 # Core system dependencies
 # iproute2: network namespace management (ip netns, veth pairs)
-# iptables: bypass detection — LOG + REJECT rules for direct connection diagnostics
+# iptables: legacy bypass detection (kept for transition)
+# nftables: bypass detection — log + reject rules for direct connection diagnostics
 # dnsutils: dig, nslookup
 # Python is managed entirely by uv (see devtools stage).
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         dnsutils \
         iproute2 \
         iptables \
+        nftables \
         iputils-ping \
         net-tools \
         netcat-openbsd \
