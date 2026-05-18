@@ -24,6 +24,7 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | `sandboxes/base/`       | Foundational image with system tools, users, and dev environment |
 | `sandboxes/droid/`      | Android automation and mobile testing workflows              |
 | `sandboxes/gemini/`     | Gemini CLI workflows                                         |
+| `sandboxes/kiro/`       | Kiro CLI for AI-powered agentic code generation and review   |
 | `sandboxes/nvidia-gpu/` | GPU-enabled VM sandbox image with NVIDIA userspace tooling   |
 | `sandboxes/ollama/`     | Ollama for local and cloud LLMs with Claude Code, Codex, OpenCode pre-installed |
 | `sandboxes/sdg/`        | Synthetic data generation workflows                          |
@@ -57,6 +58,18 @@ curl http://127.0.0.1:11434/api/tags
 ```
 
 See the [Ollama sandbox README](sandboxes/ollama/README.md) for full details.
+
+### Kiro Sandbox
+
+The Kiro sandbox provides [Kiro CLI](https://kiro.dev) for AI-powered agentic code generation, review, and infrastructure management.
+
+**Quick start:**
+
+```bash
+openshell sandbox create --from kiro -e KIRO_API_KEY=<your-key>
+```
+
+Requires a Kiro Pro, Pro+, or Power subscription. See the [Kiro sandbox README](sandboxes/kiro/README.md) for full details.
 
 ## Contributing
 
