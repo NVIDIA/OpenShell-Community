@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.4
+
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Kiro CLI sandbox — ECS Fargate deployment variant
+#
+# Adds an HTTP API wrapper for running Kiro as a headless service.
+# Build:  docker build -f Dockerfile.ecs -t kiro-sandbox-ecs .
+# Deploy: See README.md for ECS task definition and Terraform examples.
+
+ARG BASE_IMAGE=ghcr.io/nvidia/openshell-community/sandboxes/base:latest
+FROM ${BASE_IMAGE}
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3 unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL https://cli.kiro.dev/install | bash \
+    && cp /root/.local/bin/kiro-cli /usr/local/bin/kiro \
+    && chmod 755 /usr/local/bin/kiro
+
+COPY policy.yaml /etc/openshell/policy.yaml
+COPY examples/ecs/server.py /usr/local/bin/server.py
+RUN chmod +x /usr/local/bin/server.py
+
+RUN mkdir -p /sandbox/.kiro && chown sandbox:sandbox /sandbox/.kiro
+
+USER sandbox
+EXPOSE 8080
+
+CMD ["python3", "/usr/local/bin/server.py"]

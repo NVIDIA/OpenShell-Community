@@ -1,0 +1,37 @@
+{
+  "family": "kiro-sandbox",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/kiro-sandbox-task-execution",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/kiro-sandbox-task",
+  "containerDefinitions": [
+    {
+      "name": "kiro",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/kiro-sandbox:latest",
+      "essential": true,
+      "command": ["python3", "/usr/local/bin/server.py"],
+      "portMappings": [
+        { "containerPort": 8080, "protocol": "tcp" }
+      ],
+      "secrets": [
+        {
+          "name": "KIRO_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:kiro-sandbox/api-key"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/kiro-sandbox",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "kiro"
+        }
+      },
+      "linuxParameters": {
+        "initProcessEnabled": true
+      }
+    }
+  ]
+}
