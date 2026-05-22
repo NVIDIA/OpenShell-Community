@@ -27,17 +27,8 @@ docker build -t openshell-pi --build-arg BASE_IMAGE=ghcr.io/nvidia/openshell-com
 openshell sandbox create --from pi
 ```
 
-### Run a specific pi command
+### Start pi directly
 
 ```bash
-openshell sandbox create --from pi -- pi --version
-```
-
-## Provider Setup
-
-Use `/login` in interactive mode, or set an API-key environment variable before starting pi, for example:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-pi
+openshell sandbox create --from pi -- pi
 ```
