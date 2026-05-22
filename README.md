@@ -26,6 +26,7 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | `sandboxes/gemini/`     | Gemini CLI workflows                                         |
 | `sandboxes/nvidia-gpu/` | GPU-enabled VM sandbox image with NVIDIA userspace tooling   |
 | `sandboxes/ollama/`     | Ollama for local and cloud LLMs with Claude Code, Codex, OpenCode pre-installed |
+| `sandboxes/pi/`         | [Pi](https://pi.dev) pre-installed                           |
 | `sandboxes/sdg/`        | Synthetic data generation workflows                          |
 
 ## Getting Started
