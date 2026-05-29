@@ -96,9 +96,9 @@ RUN curl -fsSL https://claude.ai/install.sh | bash \
 # uv manages the Python toolchain; no system Python packages are needed.
 COPY --from=ghcr.io/astral-sh/uv:0.10.8 /uv /usr/local/bin/uv
 ENV UV_PYTHON_INSTALL_DIR="/sandbox/.uv/python"
-RUN uv python install 3.13 && \
-    ln -s $(uv python find 3.13) /usr/local/bin/python3 && \
-    ln -s $(uv python find 3.13) /usr/local/bin/python && \
+RUN uv python install 3.14.3 && \
+    ln -s $(uv python find 3.14.3) /usr/local/bin/python3 && \
+    ln -s $(uv python find 3.14.3) /usr/local/bin/python && \
     uv cache clean
 
 # Final base image
@@ -122,10 +122,10 @@ COPY skills/ /sandbox/.agents/skills/
 
 # Set up sandbox user home directory
 RUN mkdir -p /sandbox/.claude/skills && \
-    # Create a writable venv using uv-managed Python 3.13.
+    # Create a writable venv using uv-managed Python 3.14.3.
     # Sandbox users can `uv pip install` (or `pip install`) into
     # this venv without touching the base image layer.
-    uv venv --python 3.13 --seed /sandbox/.venv && \
+    uv venv --python 3.14.3 --seed /sandbox/.venv && \
     uv pip install --python /sandbox/.venv/bin/python cloudpickle && \
     uv cache clean && \
     chown -R sandbox:sandbox /sandbox/.venv && \

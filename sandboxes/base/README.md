@@ -7,7 +7,7 @@ The foundational sandbox image that all other OpenShell Community sandbox images
 | Category | Tools |
 |----------|-------|
 | OS | Ubuntu 24.04 |
-| Languages | `python3` (3.13), `node` (22.22.1) |
+| Languages | `python3` (3.14.3), `node` (22.22.1) |
 | Package managers | `npm` (11.11.0), `uv` (0.10.8), `pip` |
 | Coding agents | `claude`, `opencode`, `codex`, `copilot` |
 | Developer | `gh`, `git`, `vim`, `nano` |
