@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+
+network_policies:
+  kiro_cli:
+    name: kiro-cli
+    endpoints:
+      - { host: "*.kiro.dev", port: 443 }
+      - { host: "*.amazoncodewhisperer.com", port: 443 }
+    binaries:
+      - { path: /usr/local/bin/kiro }
+      - { path: /usr/bin/curl }
+      - { path: /bin/bash }
+
+  github_ssh_over_https:
+    name: github-ssh-over-https
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+    binaries:
+      - { path: /usr/bin/git }
+
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - { path: /usr/local/bin/kiro }
+      - { path: /usr/bin/gh }
+
+  pypi:
+    name: pypi
+    endpoints:
+      - { host: pypi.org, port: 443 }
+      - { host: files.pythonhosted.org, port: 443 }
+      - { host: github.com, port: 443 }
+      - { host: objects.githubusercontent.com, port: 443 }
+      - { host: api.github.com, port: 443 }
+      - { host: downloads.python.org, port: 443 }
+    binaries:
+      - { path: /sandbox/.venv/bin/python }
+      - { path: /sandbox/.venv/bin/python3 }
+      - { path: /sandbox/.venv/bin/pip }
+      - { path: /usr/local/bin/uv }
+      - { path: "/sandbox/.uv/python/**" }
+
+  npm:
+    name: npm
+    endpoints:
+      - { host: registry.npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/bin/npm }
