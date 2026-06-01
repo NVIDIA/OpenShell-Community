@@ -23,6 +23,18 @@ Image: nvidia/cuda:12.8.1-base-ubuntu22.04
 License: NVIDIA CUDA Toolkit End User License Agreement and Ubuntu component licenses
 URL: https://hub.docker.com/r/nvidia/cuda
 
+Image: nvcr.io/nvidia/cuda:12.8.1-base-ubuntu22.04
+License: NVIDIA CUDA Toolkit End User License Agreement and Ubuntu component licenses
+URL: https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda
+
+================================================================================
+Source Artifacts
+================================================================================
+
+Source: NVIDIA/cuda-samples v12.8
+License: NVIDIA CUDA Samples License
+URL: https://github.com/NVIDIA/cuda-samples
+
 ================================================================================
 System Packages (APT — Ubuntu 24.04)
 ================================================================================

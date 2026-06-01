@@ -169,6 +169,17 @@ jobs:
         with:
           driver-opts: ${{ github.ref != 'refs/heads/main' && 'network=host' || '' }}
 
+      - name: Set build platforms
+        id: platforms
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "value=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.sandbox }}" == "nvidia-gpu" || "${{ matrix.sandbox }}" == gpu-workload-* ]]; then
+            echo "value=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=linux/amd64" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -209,6 +220,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: sandboxes/base
+          platforms: ${{ steps.platforms.outputs.value }}
           push: true
           tags: localhost:5000/sandboxes/base:latest
           cache-from: type=gha,scope=base
@@ -220,6 +232,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: sandboxes/${{ steps.parent.outputs.sandbox }}
+          platforms: ${{ steps.platforms.outputs.value }}
           push: true
           tags: localhost:5000/sandboxes/${{ steps.parent.outputs.sandbox }}:latest
           build-args: |
@@ -247,15 +260,6 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Set build platforms
-        id: platforms
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ matrix.sandbox }}" = "nvidia-gpu" ]; then
-            echo "value=linux/amd64,linux/arm64" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=linux/amd64" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -268,4 +272,3 @@ jobs:
             BASE_IMAGE=${{ steps.base.outputs.image }}
           cache-from: type=gha,scope=${{ matrix.sandbox }}
           cache-to: type=gha,mode=max,scope=${{ matrix.sandbox }}
-

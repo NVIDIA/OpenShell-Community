@@ -24,6 +24,9 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | `sandboxes/base/`       | Foundational image with system tools, users, and dev environment |
 | `sandboxes/droid/`      | Android automation and mobile testing workflows              |
 | `sandboxes/gemini/`     | Gemini CLI workflows                                         |
+| `sandboxes/gpu-workload-cuda-basic/` | CUDA `deviceQuery` and `vectorAdd` GPU e2e validation workload |
+| `sandboxes/gpu-workload-smoke-fail/` | Intentional-failure GPU e2e workload fixture       |
+| `sandboxes/gpu-workload-smoke-pass/` | Success-path GPU e2e workload fixture              |
 | `sandboxes/nvidia-gpu/` | GPU-enabled VM sandbox image with NVIDIA userspace tooling   |
 | `sandboxes/ollama/`     | Ollama for local and cloud LLMs with Claude Code, Codex, OpenCode pre-installed |
 | `sandboxes/pi/`         | [Pi](https://pi.dev) pre-installed                           |
