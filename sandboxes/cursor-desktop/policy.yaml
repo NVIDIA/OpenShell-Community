@@ -1,0 +1,256 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /etc
+    - /var/log
+    - /app
+    - /opt/Cursor
+    # Google Chrome .deb installs under /opt/google/chrome; Landlock denies
+    # unlisted paths, so Chrome cannot start without read access here.
+    - /opt/google
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+    # Chrome uses /dev/shm for shared memory; without it, startup can fail or hang.
+    - /dev/shm
+    # PTYs for Cursor's integrated terminal (openpty / /dev/ptmx + /dev/pts).
+    - /dev/ptmx
+    - /dev/pts
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+#
+# Each named policy maps a set of allowed (binary, endpoint) pairs.
+# Binary identity is resolved via /proc/net/tcp inode lookup + /proc/{pid}/exe.
+# Ancestors (/proc/{pid}/status PPid walk) and cmdline paths are also matched.
+# SHA256 integrity is enforced in Rust via trust-on-first-use, not here.
+#
+# Host field supports wildcards (OpenShell policy schema), e.g. *.gallerycdn.vsassets.io
+# for per-publisher VS Marketplace CDNs — without these, each extension download can
+# surface as a separate approval in the CLI. See README "Policy" for manual approvals.
+
+network_policies:
+
+  # Cursor application, auth, and AI inference endpoints.
+  # cursor.blob.core.windows.net: Azure CDN used for extension/package downloads.
+  # api2.cursor.sh: primary AI/chat API.
+  # repo.cursor.sh / download.cursor.sh: package and update repositories
+  #   (update.mode:none in settings.json suppresses active polls, but the
+  #   Electron app may still resolve these on startup).
+  cursor_app:
+    name: cursor-app
+    endpoints:
+      - { host: cursor.com,                          port: 443 }
+      - { host: www.cursor.com,                      port: 443 }
+      - { host: api2.cursor.sh,                      port: 443 }
+      - { host: api3.cursor.sh,                      port: 443 }
+      - { host: api.cursor.sh,                       port: 443 }
+      - { host: cursor.so,                           port: 443 }
+      - { host: cursor.blob.core.windows.net,        port: 443 }
+      - { host: repo.cursor.sh,                      port: 443 }
+      - { host: download.cursor.sh,                  port: 443 }
+      - { host: cursor.download.prss.microsoft.com,  port: 443 }
+      # VS Code / Cursor extension marketplace & updates (see also code.visualstudio.com/docs/setup/network).
+      - { host: update.code.visualstudio.com,           port: 443 }
+      - { host: code.visualstudio.com,                  port: 443 }
+      - { host: go.microsoft.com,                       port: 443 }
+      - { host: marketplace.visualstudio.com,         port: 443 }
+      - { host: "*.gallery.vsassets.io",                port: 443 }
+      - { host: "*.gallerycdn.vsassets.io",           port: 443 }
+      - { host: "*.vscode-cdn.net",                     port: 443 }
+      - { host: "*.vscode-unpkg.net",                   port: 443 }
+      - { host: vscode.download.prss.microsoft.com,     port: 443 }
+      - { host: download.visualstudio.microsoft.com,    port: 443 }
+      - { host: vscode-sync.trafficmanager.net,         port: 443 }
+      - { host: vscode-sync-insiders.trafficmanager.net, port: 443 }
+      - { host: vscode.dev,                             port: 443 }
+      - { host: raw.githubusercontent.com,              port: 443 }
+      - { host: vsmarketplacebadges.dev,                port: 443 }
+      - { host: default.exp-tas.com,                    port: 443 }
+      - { host: az764295.vo.msecnd.net,                 port: 443 }
+      - { host: rink.hockeyapp.net,                     port: 443 }
+      - { host: marketplace.cursorapi.com,              port: 443 }
+      # Sign-in / "Continue with Google" often runs inside Cursor's Electron shell, not only Chrome.
+      # Google's pages pull JS from gstatic and apis.google.com; omitting them breaks the email step.
+      - { host: accounts.google.com,                 port: 443 }
+      - { host: android.clients.google.com,          port: 443 }
+      - { host: apis.google.com,                     port: 443 }
+      - { host: clients2.google.com,                 port: 443 }
+      - { host: clients4.google.com,                 port: 443 }
+      - { host: clients6.google.com,                 port: 443 }
+      - { host: content.googleapis.com,              port: 443 }
+      - { host: fonts.googleapis.com,                port: 443 }
+      - { host: fonts.gstatic.com,                   port: 443 }
+      - { host: google.com,                          port: 443 }
+      - { host: myaccount.google.com,                port: 443 }
+      - { host: oauth2.googleapis.com,               port: 443 }
+      - { host: ogs.google.com,                      port: 443 }
+      - { host: people.googleapis.com,               port: 443 }
+      - { host: play.google.com,                     port: 443 }
+      - { host: safebrowsing.googleapis.com,           port: 443 }
+      - { host: ssl.gstatic.com,                     port: 443 }
+      - { host: www.google.com,                      port: 443 }
+      - { host: www.googleapis.com,                  port: 443 }
+      - { host: www.gstatic.com,                     port: 443 }
+      - { host: www.recaptcha.net,                   port: 443 }
+    binaries:
+      - { path: /usr/bin/cursor }
+      - { path: /usr/share/cursor/cursor }
+      - { path: "/usr/share/cursor/**" }
+      - { path: /opt/Cursor/cursor }
+      - { path: "/opt/Cursor/**" }
+      # Shells + fetch tools often perform the actual TCP connect for terminal workflows.
+      - { path: /usr/bin/bash }
+      - { path: /bin/bash }
+      - { path: /usr/bin/sh }
+      - { path: /bin/sh }
+      - { path: /usr/bin/dash }
+      - { path: /bin/dash }
+      - { path: /usr/bin/curl }
+      - { path: /usr/bin/wget }
+
+  # Browser-based OAuth / sign-in flows.
+  #
+  # NOTE: "audit" here is about request-level inspection (when protocol: rest is set).
+  # The CONNECT allowlist is still enforced at the (binary, host:port) level, so we
+  # enumerate common auth endpoints up front and then promote additional hosts
+  # observed in `openshell logs` during sign-in.
+  browser_auth_audit:
+    name: browser-auth-audit
+    endpoints:
+      - { host: cursor.com,                         port: 443 }
+      - { host: www.cursor.com,                     port: 443 }
+      - { host: accounts.google.com,                port: 443 }
+      - { host: android.clients.google.com,         port: 443 }
+      - { host: apis.google.com,                    port: 443 }
+      - { host: clients2.google.com,                port: 443 }
+      - { host: clients4.google.com,                port: 443 }
+      - { host: clients6.google.com,                port: 443 }
+      - { host: content.googleapis.com,             port: 443 }
+      - { host: fonts.googleapis.com,               port: 443 }
+      - { host: fonts.gstatic.com,                  port: 443 }
+      - { host: google.com,                         port: 443 }
+      - { host: myaccount.google.com,               port: 443 }
+      - { host: oauth2.googleapis.com,              port: 443 }
+      - { host: ogs.google.com,                     port: 443 }
+      - { host: people.googleapis.com,              port: 443 }
+      - { host: play.google.com,                    port: 443 }
+      - { host: safebrowsing.googleapis.com,        port: 443 }
+      - { host: ssl.gstatic.com,                    port: 443 }
+      - { host: www.google.com,                     port: 443 }
+      - { host: www.googleapis.com,                 port: 443 }
+      - { host: www.gstatic.com,                    port: 443 }
+      - { host: www.recaptcha.net,                  port: 443 }
+      - { host: login.microsoftonline.com,          port: 443 }
+      - { host: device.login.microsoftonline.com,  port: 443 }
+      - { host: github.com,                         port: 443 }
+      - { host: api.github.com,                     port: 443 }
+      # Cursor (Electron) may emit telemetry via this host.
+      - { host: mobile.events.data.microsoft.com,   port: 443 }
+    binaries:
+      - { path: /usr/bin/google-chrome }
+      - { path: /usr/bin/google-chrome-stable }
+      - { path: /opt/google/chrome/chrome }
+      - { path: "/opt/google/chrome/**" }
+      - { path: /usr/bin/firefox }
+      - { path: /usr/lib/firefox/firefox }
+      - { path: "/usr/lib/firefox/**" }
+
+  # Git operations over HTTPS.
+  # Write rules (git-receive-pack) are commented out for least-privilege defaults.
+  # Uncomment and scope to specific repos when push is required.
+  github:
+    name: github
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          # Clone / fetch / pull
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+          # Push — uncomment and replace <owner>/<repo> to scope narrowly
+          # - allow:
+          #     method: POST
+          #     path: "/<owner>/<repo>/git-receive-pack"
+    binaries:
+      - { path: /usr/bin/git }
+      - { path: /usr/bin/cursor }
+      - { path: "/opt/Cursor/**" }
+
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**"
+          - allow:
+              method: HEAD
+              path: "/**"
+          - allow:
+              method: OPTIONS
+              path: "/**"
+          # Uncomment for write access:
+          # - allow:
+          #     method: "*"
+          #     path: "/repos/<owner>/<repo>/**"
+    binaries:
+      - { path: /usr/bin/git }
+      - { path: /usr/bin/cursor }
+
+  gitlab:
+    name: gitlab
+    endpoints:
+      - { host: gitlab.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/git }
+
+  # Local or provider-managed inference routing.
+  # Attach an OpenShell provider instead of baking raw API keys into the image.
+  inference_local:
+    name: inference-local
+    endpoints:
+      - { host: inference.local, port: 443 }
+    binaries:
+      - { path: /usr/bin/cursor }
+      - { path: /opt/Cursor/cursor }
+      - { path: "/opt/Cursor/**" }
+
+  # NVIDIA inference — enable when routing Cursor AI through NIM endpoints.
+  nvidia_inference:
+    name: nvidia-inference
+    endpoints:
+      - { host: integrate.api.nvidia.com, port: 443 }
+    binaries:
+      - { path: /usr/bin/cursor }
+      - { path: "/opt/Cursor/**" }

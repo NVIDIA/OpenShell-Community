@@ -1,0 +1,5 @@
+# Linux entrypoints for cursor-desktop must stay LF so WSL and Docker builds work on Windows checkouts.
+sandboxes/cursor-desktop/**/*.sh text eol=lf
+sandboxes/cursor-desktop/scripts/openbox-autostart text eol=lf
+sandboxes/cursor-desktop/scripts/openbox-rc.xml text eol=lf
+sandboxes/cursor-desktop/scripts/openbox-menu.xml text eol=lf

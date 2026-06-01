@@ -1,0 +1,92 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Openbox autostart — runs inside the same dbus-launch session as openbox.
+# Launching Cursor here (rather than from startup.sh) ensures it inherits
+# DBUS_SESSION_BUS_ADDRESS so that xdg-open can spawn Chromium for auth flows.
+
+# Export session variables so every child process (including xdg-open) picks
+# them up without needing an explicit D-Bus desktop environment query.
+export HOME="${HOME:-/sandbox}"
+export DISPLAY="${DISPLAY:-:1}"
+export XCURSOR_SIZE=24
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=openbox
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-sandbox}"
+
+# If OpenShell is doing TLS termination / relay for L7 policy enforcement,
+# Electron/Chromium will reject it unless the OpenShell CA is trusted by NSS.
+# Import the OpenShell CA (mounted into the sandbox) into the sandbox user's
+# NSS DB (used by Chrome/Electron) if possible.
+#
+# Note: /etc/openshell-tls/openshell-ca.pem is the cluster CA bundle; the
+# client/ca.crt is for mTLS to the gateway and may not match the TLS relay CA.
+OS_CA=""
+if [ -r /etc/openshell-tls/openshell-ca.pem ]; then
+    OS_CA="/etc/openshell-tls/openshell-ca.pem"
+elif [ -r /etc/openshell-tls/ca-bundle.pem ]; then
+    OS_CA="/etc/openshell-tls/ca-bundle.pem"
+elif [ -r /etc/openshell-tls/client/ca.crt ]; then
+    OS_CA="/etc/openshell-tls/client/ca.crt"
+fi
+
+if [ -n "$OS_CA" ] && command -v certutil >/dev/null 2>&1; then
+    mkdir -p "$HOME/.pki/nssdb" >/dev/null 2>&1 || true
+    certutil -d "sql:$HOME/.pki/nssdb" -L >/dev/null 2>&1 || \
+        certutil -d "sql:$HOME/.pki/nssdb" -N --empty-password >/dev/null 2>&1 || true
+    # Add (or replace) a stable nickname.
+    certutil -d "sql:$HOME/.pki/nssdb" -D -n "OpenShell Gateway CA" >/dev/null 2>&1 || true
+    certutil -d "sql:$HOME/.pki/nssdb" -A -n "OpenShell Gateway CA" -t "C,," -i "$OS_CA" >/dev/null 2>&1 || true
+fi
+
+# Set BROWSER to whichever browser was installed at image build time.
+# On amd64: Google Chrome; on arm64: Firefox (Chrome is amd64-only).
+if [ -x /usr/bin/google-chrome-stable ]; then
+    export BROWSER=/usr/bin/google-chrome-stable
+elif [ -x /usr/bin/firefox ]; then
+    export BROWSER=/usr/bin/firefox
+fi
+
+# Plain background (visible only before Cursor maps).
+# Do not background this: if DISPLAY isn't ready yet, it can hang and prevent
+# Cursor from launching.
+timeout 2 xsetroot -solid "#1e1e1e" >/dev/null 2>&1 || true
+
+# Launch Cursor only when the GUI binary is present (amd64 builds).
+# Note: /usr/bin/cursor is the *CLI* wrapper; the Electron GUI binary is
+# installed at /usr/share/cursor/cursor.
+CURSOR_BIN=""
+if [ -x /usr/share/cursor/cursor ]; then
+    CURSOR_BIN=/usr/share/cursor/cursor
+elif [ -x /opt/Cursor/cursor ]; then
+    CURSOR_BIN=/opt/Cursor/cursor
+fi
+
+if [ -n "$CURSOR_BIN" ]; then
+    # Let Openbox finish mapping the root window before Electron starts.
+    sleep 2
+
+    # Docker Desktop (Windows) uses a WSL2 kernel inside containers (/proc/version → "microsoft").
+    # Cursor treats that like WSL and otherwise prompts on stdin; without a TTY the UI never starts.
+    # Official bypass (see Cursor stderr): define DONT_PROMPT_WSL_INSTALL.
+    # Xvfb: use X11 + software GL (llvmpipe). Avoid --disable-gpu — with Ozone/X11 it often
+    # yields a black framebuffer in VNC because no software raster path is active.
+    DONT_PROMPT_WSL_INSTALL=1 \
+    GDK_BACKEND=x11 \
+    ELECTRON_OZONE_PLATFORM_HINT=x11 \
+    ELECTRON_ENABLE_LOGGING=1 \
+    ELECTRON_ENABLE_STACK_DUMPING=1 \
+    CURSOR_LOG_LEVEL=debug \
+    LIBGL_ALWAYS_SOFTWARE=1 \
+    GALLIUM_DRIVER=llvmpipe \
+    "$CURSOR_BIN" \
+        --no-sandbox \
+        --disable-dev-shm-usage \
+        --disable-gpu-sandbox \
+        --ozone-platform=x11 \
+        --enable-logging=stderr \
+        --v=1 \
+        /sandbox/workspace \
+        >/tmp/cursor.log 2>&1 &
+fi
