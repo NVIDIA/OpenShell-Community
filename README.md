@@ -21,6 +21,7 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 
 | Sandbox                 | Description                                                  |
 | ----------------------- | ------------------------------------------------------------ |
+| `sandboxes/aio-sandbox/` | All-in-one sandbox with browser, shell, MCP, and VS Code Server |
 | `sandboxes/base/`       | Foundational image with system tools, users, and dev environment |
 | `sandboxes/droid/`      | Android automation and mobile testing workflows              |
 | `sandboxes/gemini/`     | Gemini CLI workflows                                         |
