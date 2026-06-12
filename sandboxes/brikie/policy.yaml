@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 brikie contributors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+
+network_policies:
+  brikie:
+    name: brikie
+    endpoints:
+      # API-key model providers. brikie's HTTPProvider speaks both the
+      # OpenAI and Anthropic wire formats, so any OpenAI-compatible host
+      # works once allowed here.
+      - { host: api.anthropic.com, port: 443 }
+      - { host: api.openai.com, port: 443 }
+      - { host: openrouter.ai, port: 443 }
+      - { host: api.groq.com, port: 443 }
+      - { host: api.deepseek.com, port: 443 }
+      - { host: api.mistral.ai, port: 443 }
+      - { host: api.cerebras.ai, port: 443 }
+      - { host: api.x.ai, port: 443 }
+      - { host: api.together.ai, port: 443 }
+      - { host: api.fireworks.ai, port: 443 }
+      - { host: router.huggingface.co, port: 443 }
+      - { host: ai-gateway.vercel.sh, port: 443 }
+      - { host: generativelanguage.googleapis.com, port: 443 }
+      # NVIDIA-hosted inference
+      - { host: integrate.api.nvidia.com, port: 443 }
+      # The brikie.co brick registry: search / install / publish bricks
+      - { host: brikie.co, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/brikie }
+      - { path: /usr/bin/brikie }
+      - { path: /usr/local/bin/python }
+      - { path: /usr/local/bin/python3 }
+      - { path: /usr/bin/python3 }
+
+  # --- GitHub REST API (read-only) ---
+  # brikie's optional GitHub brick (BRK-430) reads repository issues to
+  # feed the Dreamer triaged community requests.
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - { path: /usr/local/bin/python }
+      - { path: /usr/local/bin/python3 }
+      - { path: /usr/bin/python3 }
+
+  pypi:
+    name: pypi
+    endpoints:
+      - { host: pypi.org, port: 443 }
+      - { host: files.pythonhosted.org, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/pip }
+      - { path: /usr/local/bin/python }
+      - { path: /usr/local/bin/python3 }
+      - { path: /usr/bin/python3 }
