@@ -26,6 +26,7 @@ WORKDIR /sandbox
 # dnsutils: dig, nslookup
 # Python is managed entirely by uv (see devtools stage).
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        bash \
         ca-certificates \
         curl \
         dnsutils \
@@ -91,6 +92,23 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 RUN curl -fsSL https://claude.ai/install.sh | bash \
     && cp /root/.local/bin/claude /usr/local/bin/claude \
     && chmod 755 /usr/local/bin/claude
+
+# Install Goose CLI/agent for all OpenShell sandboxes.
+# Goose provider credentials are intentionally configured at runtime, not baked into the image.
+ARG GOOSE_VERSION=stable
+RUN curl -fsSL "https://github.com/aaif-goose/goose/releases/download/${GOOSE_VERSION}/download_cli.sh" \
+        -o /tmp/download_cli.sh \
+    && if [ "${GOOSE_VERSION}" = "stable" ]; then \
+         CONFIGURE=false env -u GOOSE_VERSION bash /tmp/download_cli.sh; \
+       else \
+         CONFIGURE=false bash /tmp/download_cli.sh; \
+       fi \
+    && rm -f /tmp/download_cli.sh \
+    && if [ -f "$HOME/.local/bin/goose" ]; then \
+         mv "$HOME/.local/bin/goose" /usr/local/bin/goose; \
+       fi \
+    && chmod +x /usr/local/bin/goose \
+    && goose --version
 
 # uv (Python package/project manager) — pinned for reproducibility.
 # uv manages the Python toolchain; no system Python packages are needed.

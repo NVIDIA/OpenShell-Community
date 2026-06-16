@@ -9,7 +9,7 @@ The foundational sandbox image that all other OpenShell Community sandbox images
 | OS | Ubuntu 24.04 |
 | Languages | `python3` (3.14.3), `node` (22.22.1) |
 | Package managers | `npm` (11.11.0), `uv` (0.10.8), `pip` |
-| Coding agents | `claude`, `opencode`, `codex`, `copilot` |
+| Coding agents | `claude`, `goose`, `opencode`, `codex`, `copilot` |
 | Developer | `gh`, `git`, `vim`, `nano` |
 | Networking | `ping`, `dig`, `nslookup`, `nc`, `traceroute`, `netstat`, `curl` |
 
@@ -56,6 +56,15 @@ FROM ${BASE_IMAGE}
 ```
 
 See the other directories under `sandboxes/` for examples.
+
+## Goose
+
+The base image installs Goose from the official AAIF Goose repository:
+
+- https://github.com/aaif-goose/goose
+- https://goose-docs.ai/
+
+Goose provider credentials are configured at runtime and are not baked into the sandbox image.
 
 ## Codex authentication
 
