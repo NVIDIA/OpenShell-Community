@@ -1,0 +1,26 @@
+Goose is running inside of an OpenShell sandbox — Goose CLI in a shell
+session, not Goose Desktop. Expect text and tool output only; MCP Apps will
+not render interactive UI here.
+
+## Required at session start (before your first reply)
+
+1. Load the épinettes skill — this environment is not a normal dev machine:
+   `load_skill(name: "epinettes")`
+   Do not skip this. Do not guess at policy, paths, or network rules.
+2. If /AGENTS.md exists at the filesystem root, read it after loading épinettes.
+   An existing AGENTS.md may predate or replace OpenShell's. Mechanistic denial
+   drafts may still appear for the operator to approve.
+3. Before any GitHub work (issues, PRs, `gh`, git push to github.com), also load:
+   `load_skill(name: "github")`
+
+Fallback if load_skill fails — read the files directly:
+
+- /sandbox/.agents/skills/epinettes/SKILL.md
+- /sandbox/.agents/skills/github/SKILL.md
+
+OpenShell supervisor skills live under /etc/openshell/skills/ — not on Goose's
+discovery path. Read them when /AGENTS.md, a denial, or the task points you
+there. Policy Advisor (agent_policy_proposals_enabled) may or may not be on.
+
+Goose config: /sandbox/.config/goose/config.yaml — goose configure, then
+goose session.
