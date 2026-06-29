@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 canardleteer
+# SPDX-License-Identifier: Apache-2.0
+
+# Baked defaults for the goose sandbox image. Provider and extensions belong
+# in runtime config — see sandboxes/goose/README.md.
+GOOSE_TELEMETRY_ENABLED: false

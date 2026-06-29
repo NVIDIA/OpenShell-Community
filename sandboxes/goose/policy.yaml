@@ -1,0 +1,185 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 canardleteer
+# SPDX-License-Identifier: Apache-2.0
+
+version: 1
+
+# --- Sandbox setup configuration (queried once at startup) ---
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# --- Network policies (queried per-CONNECT request) ---
+#
+# Replaces the base image policy. Omits network policies for other bundled
+# agents (claude, copilot, codex, opencode, vscode, cursor). Shared dev
+# tooling (git, gh, pypi, npm) is kept below.
+#
+# Each named policy maps a set of allowed (binary, endpoint) pairs.
+# Binary identity is resolved via /proc/net/tcp inode lookup + /proc/{pid}/exe.
+# Ancestors (/proc/{pid}/status PPid walk) and cmdline paths are also matched.
+# SHA256 integrity is enforced in Rust via trust-on-first-use, not here.
+
+network_policies:
+  # --- Goose inference providers ---
+  # Trim endpoints to the LLM backends you use; the list is intentionally
+  # broad for a smoother first-run experience with goose configure.
+  goose:
+    name: goose
+    endpoints:
+      # API-key providers
+      - { host: api.anthropic.com, port: 443 }
+      - { host: api.openai.com, port: 443 }
+      - { host: api.deepseek.com, port: 443 }
+      - { host: generativelanguage.googleapis.com, port: 443 }
+      - { host: api.mistral.ai, port: 443 }
+      - { host: api.groq.com, port: 443 }
+      - { host: api.cerebras.ai, port: 443 }
+      - { host: api.x.ai, port: 443 }
+      - { host: openrouter.ai, port: 443 }
+      - { host: ai-gateway.vercel.sh, port: 443 }
+      - { host: router.huggingface.co, port: 443 }
+      - { host: api.fireworks.ai, port: 443 }
+      - { host: api.together.ai, port: 443 }
+      - { host: api.kimi.com, port: 443 }
+      - { host: api.moonshot.ai, port: 443 }
+      - { host: api.moonshot.cn, port: 443 }
+      - { host: api.minimax.io, port: 443 }
+      - { host: api.minimaxi.com, port: 443 }
+      - { host: api.xiaomimimo.com, port: 443 }
+      - { host: token-plan-cn.xiaomimimo.com, port: 443 }
+      - { host: token-plan-ams.xiaomimimo.com, port: 443 }
+      - { host: token-plan-sgp.xiaomimimo.com, port: 443 }
+      - { host: api.z.ai, port: 443 }
+      - { host: integrate.api.nvidia.com, port: 443 }
+      - { host: api.perplexity.ai, port: 443 }
+      - { host: api.novita.ai, port: 443 }
+      - { host: api.empiriolabs.ai, port: 443 }
+      - { host: cloud.near.ai, port: 443 }
+      - { host: api.routstr.com, port: 443 }
+      - { host: api.venice.ai, port: 443 }
+      - { host: api.scaleway.ai, port: 443 }
+      - { host: api.ovhcloud.com, port: 443 }
+      - { host: router.tetrate.ai, port: 443 }
+      # Cloud providers
+      - { host: bedrock-runtime.us-east-1.amazonaws.com, port: 443 }
+      - { host: bedrock-runtime.eu-central-1.amazonaws.com, port: 443 }
+      - { host: api.cloudflare.com, port: 443 }
+      - { host: gateway.ai.cloudflare.com, port: 443 }
+      - { host: "*-aiplatform.googleapis.com", port: 443 }
+      - { host: accounts.google.com, port: 443 }
+      - { host: oauth2.googleapis.com, port: 443 }
+      - { host: www.googleapis.com, port: 443 }
+      - { host: iamcredentials.googleapis.com, port: 443 }
+      # Ollama Cloud
+      - { host: ollama.com, port: 443 }
+      # Optional telemetry (opt-in)
+      - { host: us.i.posthog.com, port: 443 }
+    binaries:
+      - { path: /usr/local/bin/goose }
+      - { path: /usr/bin/goose }
+
+  # --- Goose remote MCP extensions (OpenShell ≥ 0.0.72) ---
+  # Trim host, path, and method rules to the extensions you enable. Broad
+  # allow here for a smoother first-run (Excalidraw MCP App).
+  goose_mcp:
+    name: goose-mcp
+    endpoints:
+      - host: excalidraw-mcp-app.vercel.app
+        port: 443
+        path: /mcp
+        protocol: mcp
+        tls: terminate
+        enforcement: enforce
+        mcp:
+          allow_all_known_mcp_methods: true
+    binaries:
+      - { path: /usr/local/bin/goose }
+      - { path: /usr/bin/goose }
+
+  github_ssh_over_https:
+    name: github-ssh-over-https
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          # Git Smart HTTP read-only: allow clone, fetch, pull
+          # Discovery (query string is included in path matching)
+          - allow:
+              method: GET
+              path: "/**/info/refs*"
+          # Data transfer for reads (all repos)
+          - allow:
+              method: POST
+              path: "/**/git-upload-pack"
+          # Data transfer for writes
+          # - allow:
+          #    method: POST
+          #    path: "/**/git-receive-pack"
+    binaries:
+      - { path: /usr/bin/git }
+
+  # --- GitHub REST API (read-only) ---
+  github_rest_api:
+    name: github-rest-api
+    endpoints:
+      - host: api.github.com
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - { path: /usr/bin/gh }
+
+  # --- npm registry (MCP server installs) ---
+  npm:
+    name: npm
+    endpoints:
+      - { host: registry.npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/npm }
+
+  pypi:
+    name: pypi
+    endpoints:
+      - { host: pypi.org, port: 443 }
+      - { host: files.pythonhosted.org, port: 443 }
+      # uv python install downloads from python-build-standalone on GitHub
+      - { host: github.com, port: 443 }
+      - { host: objects.githubusercontent.com, port: 443 }
+      # uv resolves python-build-standalone release metadata via the GitHub API
+      - { host: api.github.com, port: 443 }
+      - { host: downloads.python.org, port: 443 }
+    binaries:
+      - { path: /sandbox/.venv/bin/python }
+      - { path: /sandbox/.venv/bin/python3 }
+      - { path: /sandbox/.venv/bin/pip }
+      - { path: /app/.venv/bin/python }
+      - { path: /app/.venv/bin/python3 }
+      - { path: /app/.venv/bin/pip }
+      - { path: /usr/local/bin/uv }
+      # Managed Python installations from uv python install
+      - { path: "/sandbox/.uv/python/**" }

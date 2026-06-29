@@ -24,6 +24,7 @@ This repo is the community ecosystem around OpenShell -- a hub for contributed s
 | `sandboxes/base/`       | Foundational image with system tools, users, and dev environment |
 | `sandboxes/droid/`      | Android automation and mobile testing workflows              |
 | `sandboxes/gemini/`     | Gemini CLI workflows                                         |
+| `sandboxes/goose/`      | [Goose](https://github.com/aaif-goose/goose) AI agent CLI pre-installed |
 | `sandboxes/nvidia-gpu/` | GPU-enabled VM sandbox image with NVIDIA userspace tooling   |
 | `sandboxes/ollama/`     | Ollama for local and cloud LLMs with Claude Code, Codex, OpenCode pre-installed |
 | `sandboxes/pi/`         | [Pi](https://pi.dev) pre-installed                           |
