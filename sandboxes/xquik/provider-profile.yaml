@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+id: xquik-read-only
+display_name: Xquik read-only API
+description: Read-only Xquik API access for sandbox agents
+category: data
+inference_capable: false
+credentials:
+  - name: api_key
+    description: Xquik API key
+    env_vars: [XQUIK_API_KEY]
+    required: true
+    auth_style: header
+    header_name: x-api-key
+discovery:
+  credentials: [api_key]
+endpoints:
+  - host: xquik.com
+    port: 443
+    path: /api/v1/**
+    protocol: rest
+    access: read-only
+    enforcement: enforce
+  - host: xquik.com
+    port: 443
+    path: /openapi.json
+    protocol: rest
+    access: read-only
+    enforcement: enforce
+  - host: docs.xquik.com
+    port: 443
+    protocol: rest
+    access: read-only
+    enforcement: enforce
+binaries:
+  - /usr/local/bin/claude
+  - /usr/bin/node
+  - /usr/bin/codex
+  - /usr/local/bin/opencode
+  - /usr/lib/node_modules/opencode-ai/bin/.opencode
+  - /usr/bin/copilot
+  - /usr/bin/curl
