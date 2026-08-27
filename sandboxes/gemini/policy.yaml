@@ -160,12 +160,32 @@ network_policies:
         port: 443
       - host: opencode.ai
         port: 443
+      - host: models.opencode.ai
+        port: 443
       - host: integrate.api.nvidia.com
+        port: 443
+      # Google Vertex AI + token endpoints. sts is additionally required
+      # for GitHub-OIDC Workload Identity Federation.
+      - host: "*-aiplatform.googleapis.com"
+        port: 443
+      - host: sts.googleapis.com
+        port: 443
+      - host: oauth2.googleapis.com
+        port: 443
+      - host: www.googleapis.com
+        port: 443
+      - host: iamcredentials.googleapis.com
+        port: 443
+      - host: accounts.google.com
         port: 443
     binaries:
       - path: /usr/lib/node_modules/opencode-ai/bin/.opencode
       - path: /usr/bin/node
       - path: /usr/local/bin/opencode
+      # npm child process (background dependency install / arborist)
+      # connects as npm, not opencode/node, so allowlist it explicitly.
+      - path: /usr/local/bin/npm
+      - path: /usr/bin/npm
 
   copilot:
     name: copilot
