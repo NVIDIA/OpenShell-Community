@@ -42,7 +42,7 @@ network_policies:
       - { host: registry.ollama.com, port: 443 }
       - { host: registry.ollama.ai, port: 443 }
       - { host: "*.r2.cloudflarestorage.com", port: 443 }
-      - { host: github.com, port: 443 }
+      - { host: github.com, port: 443, allow_uninspected_credentials: true }
       - { host: objects.githubusercontent.com, port: 443 }
       - { host: raw.githubusercontent.com, port: 443 }
       - { host: release-assets.githubusercontent.com, port: 443 }

@@ -126,9 +126,9 @@ network_policies:
     endpoints:
       - { host: pypi.org, port: 443 }
       - { host: files.pythonhosted.org, port: 443 }
-      - { host: github.com, port: 443 }
+      - { host: github.com, port: 443, allow_uninspected_credentials: true }
       - { host: objects.githubusercontent.com, port: 443 }
-      - { host: api.github.com, port: 443 }
+      - { host: api.github.com, port: 443, allow_uninspected_credentials: true }
       - { host: downloads.python.org, port: 443 }
     binaries:
       - { path: /sandbox/.venv/bin/python }

@@ -108,10 +108,10 @@ network_policies:
       - { host: pypi.org, port: 443 }
       - { host: files.pythonhosted.org, port: 443 }
       # uv python install downloads from python-build-standalone on GitHub
-      - { host: github.com, port: 443 }
+      - { host: github.com, port: 443, allow_uninspected_credentials: true }
       - { host: objects.githubusercontent.com, port: 443 }
       # uv resolves python-build-standalone release metadata via the GitHub API
-      - { host: api.github.com, port: 443 }
+      - { host: api.github.com, port: 443, allow_uninspected_credentials: true }
       - { host: downloads.python.org, port: 443 }
     binaries:
       - { path: /sandbox/.venv/bin/python }
@@ -170,8 +170,8 @@ network_policies:
   copilot:
     name: copilot
     endpoints:
-      - { host: github.com, port: 443 }
-      - { host: api.github.com, port: 443 }
+      - { host: github.com, port: 443, allow_uninspected_credentials: true }
+      - { host: api.github.com, port: 443, allow_uninspected_credentials: true }
       - { host: api.githubcopilot.com, port: 443 }
       - { host: api.enterprise.githubcopilot.com, port: 443 }
       - { host: release-assets.githubusercontent.com, port: 443 }
