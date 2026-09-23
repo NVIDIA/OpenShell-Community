@@ -1,72 +1,100 @@
-# OpenShell Community
+# OpenShell Community (retired)
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue)](https://github.com/NVIDIA/OpenShell/blob/main/LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-openshell-orange?logo=pypi)](https://pypi.org/project/openshell/)
-[![Security Policy](https://img.shields.io/badge/Security-Report%20a%20Vulnerability-red)](SECURITY.md)
-[![Project Status](https://img.shields.io/badge/status-alpha-orange)](https://docs.nvidia.com/openshell/latest/about/release-notes.html)
+> [!IMPORTANT]
+> This repository is retired and will be archived. Its sandbox images, policies,
+> provider profiles, and other artifacts are no longer maintained or supported.
+> Existing files remain available as historical examples, but you should not
+> depend on this repository or its published images for new deployments.
 
-[OpenShell](https://github.com/NVIDIA/OpenShell) is the runtime environment for autonomous agents -- the infrastructure where they live, work, and verify. It provides a programmable factory where agents can generate synthetic data to fix edge cases and safely iterate through thousands of failures in isolated sandboxes. The core engine includes the sandbox runtime, policy engine, gateway (with k3s harness), privacy router, and CLI.
+[OpenShell](https://github.com/NVIDIA/OpenShell) no longer depends on the
+community image catalog. A default installation uses the stock
+`nvcr.io/nvidia/base/ubuntu:24.04` workload image, which provides a minimal
+Ubuntu environment and does not bundle agent CLIs or an image-specific policy.
+Bare catalog names such as `base`, `ollama`, and `pi` are no longer expanded by
+`openshell sandbox create --from`.
 
-This repo is the community ecosystem around OpenShell -- a hub for contributed skills, sandbox images, and integrations that extend its capabilities. For the core engine, docs, and published artifacts (PyPI, containers, binaries), see the [OpenShell](https://github.com/NVIDIA/OpenShell) repo.
+## Host workload artifacts in your own repository
 
-> Alpha software — single-player mode. OpenShell is proof-of-life: one developer, one environment, one gateway. We are building toward multi-tenant enterprise deployments, but the starting point is getting your own environment up and running. Expect rough edges. Bring your agent.
+Teams that need a reusable workload should maintain its artifacts in a
+repository they control. A workload collection commonly includes:
 
-## What's Here
+- A `Dockerfile` or other build definition for an OCI image containing the
+  agent, application, and runtime dependencies.
+- An OpenShell policy that grants only the filesystem, network, and process
+  access the workload requires.
+- Provider profiles that define the credentials, service endpoints, client
+  binaries, and policy rules required by external services.
+- Build and publishing automation, versioned releases, and instructions that
+  identify compatible OpenShell and workload versions.
 
-| Directory    | Description                                                                       |
-| ------------ | --------------------------------------------------------------------------------- |
-| `sandboxes/` | Pre-built sandbox images for domain-specific workloads (each with its own skills) |
+For example:
 
-### Sandboxes
-
-| Sandbox                 | Description                                                  |
-| ----------------------- | ------------------------------------------------------------ |
-| `sandboxes/base/`       | Foundational image with system tools, users, and dev environment |
-| `sandboxes/droid/`      | Android automation and mobile testing workflows              |
-| `sandboxes/gemini/`     | Gemini CLI workflows                                         |
-| `sandboxes/nvidia-gpu/` | GPU-enabled VM sandbox image with NVIDIA userspace tooling   |
-| `sandboxes/ollama/`     | Ollama for local and cloud LLMs with Claude Code, Codex, OpenCode pre-installed |
-| `sandboxes/pi/`         | [Pi](https://pi.dev) pre-installed                           |
-| `sandboxes/sdg/`        | Synthetic data generation workflows                          |
-
-## Getting Started
-
-### Prerequisites
-
-- [OpenShell CLI](https://github.com/NVIDIA/OpenShell) installed (`uv pip install openshell`)
-- Docker or a compatible container runtime
-- NVIDIA GPU with appropriate drivers (for GPU-accelerated images)
-
-### Using Sandboxes
-
-```bash
-openshell sandbox create --from ollama
+```text
+my-openshell-workload/
+├── Dockerfile
+├── policy.yaml
+├── providers/
+│   └── my-service.yaml
+└── README.md
 ```
 
-The `--from` flag accepts any sandbox defined under `sandboxes/` (e.g., `ollama`, `sdg`), a local path, or a container image reference.
+Do not commit credentials to the repository. Provider profiles describe
+credential names and handling; provider instances store the corresponding
+values in the configured OpenShell credential backend.
 
-### Ollama Sandbox
+## Launch a self-hosted workload
 
-The Ollama sandbox provides Ollama for running local LLMs and routing to cloud models, with Claude Code and Codex pre-installed.
-
-**Quick start:**
+Build the image with the container engine used by your local gateway. For a
+remote gateway, publish it to a registry the gateway can access:
 
 ```bash
-openshell sandbox create --from ollama 
-
-curl http://127.0.0.1:11434/api/tags
+docker build -t registry.example.com/your-org/my-agent:1.0 .
+docker push registry.example.com/your-org/my-agent:1.0
 ```
 
-See the [Ollama sandbox README](sandboxes/ollama/README.md) for full details.
+Import any provider profiles and create provider instances. Replace the names
+and credential keys with those declared by your profile:
 
-## Contributing
+```bash
+openshell provider profile import --from ./providers --global
+openshell provider create \
+  --name my-service \
+  --type my-service \
+  --credential MY_SERVICE_API_KEY
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Create the sandbox with an explicit image reference, policy, and provider. Pass
+the workload's start command after `--` because OpenShell replaces the image's
+default entrypoint with the sandbox supervisor:
 
-## Security
+```bash
+openshell sandbox create \
+  --name my-agent \
+  --from registry.example.com/your-org/my-agent:1.0 \
+  --policy ./policy.yaml \
+  --provider my-service \
+  -- my-agent
+```
 
-See [SECURITY.md](SECURITY.md). Do not file public issues for security vulnerabilities.
+Use only the flags and artifacts the workload requires. A workload with no
+external credentials can omit the provider steps and `--provider`; a workload
+that can use OpenShell's built-in restrictive policy can omit `--policy`.
 
-## License
+## Current documentation and support
 
-This project is licensed under the Apache 2.0 License -- see the [LICENSE](LICENSE) file for details.
+- [OpenShell repository](https://github.com/NVIDIA/OpenShell)
+- [OpenShell documentation](https://docs.nvidia.com/openshell/latest/)
+- [Quickstart](https://docs.nvidia.com/openshell/latest/get-started/quickstart)
+- [Bring Your Own Container example](https://github.com/NVIDIA/OpenShell/tree/main/examples/bring-your-own-container)
+- [Sandbox policies](https://docs.nvidia.com/openshell/latest/sandboxes/policies)
+- [Provider profiles](https://github.com/NVIDIA/OpenShell/blob/main/docs/providers/profiles.mdx)
+
+Use the main OpenShell repository for current documentation, discussions, and
+issue reporting. Do not file new issues or pull requests in this repository.
+
+## License and security
+
+Existing content remains available under the [Apache 2.0 License](LICENSE).
+Report security vulnerabilities through the current OpenShell
+[security policy](https://github.com/NVIDIA/OpenShell/blob/main/SECURITY.md), not
+through a public issue.
